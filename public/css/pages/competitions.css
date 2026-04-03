@@ -1,0 +1,64 @@
+/* =====================================================
+   LISTE COMPETITIONS
+   ===================================================== */
+
+.competition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.competition-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+}
+
+.competition-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-action {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e5e7eb;
+  border-radius: 5px;
+  text-decoration: none;
+}
+
+.btn-danger {
+  background: #fecaca;
+}
+
+.competition-card .competition-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.competition-date {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.competition-right {
+  font-size: 12px;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.new-competition {
+  background: #f9fafb;
+  border: 2px dashed #d1d5db;
+}
+
+.new-competition .competition-title {
+  font-size: 16px;
+}

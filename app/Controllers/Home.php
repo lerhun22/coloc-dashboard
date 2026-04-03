@@ -1,0 +1,409 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Libraries\CopainLegacyReader;
+
+class Home extends BaseController
+{
+    private $email;
+    private $password;
+
+    public function __construct()
+    {
+        // ✅ récupération depuis config
+        $config = config('Copain');
+
+        $this->email    = $config->email;
+        $this->password = $config->password;
+    }
+
+    public function index()
+    {
+        return "Home Coloc CI4 OK";
+    }
+
+public function importnational($id)
+{
+    $client = new \App\Libraries\CopainClient();
+
+    /*
+    =====================
+    LOGIN
+    =====================
+    */
+
+    $client->autoLogin();
+
+    /*
+    =====================
+    IMPORT JSON
+    =====================
+    */
+
+    $importer = new \App\Libraries\CopainImporter($client, $id);
+
+    $result = $importer->importCompetition($id, 'N', 1); // ⚠️ type N
+
+    if (($result['code'] ?? 1) != 0) {
+        dd("IMPORT JSON FAIL", $result);
+    }
+
+    /*
+    =====================
+    LOAD DB
+    =====================
+    */
+
+    $model = new \App\Models\CompetitionModel();
+
+    $competition = $model->find($id);
+
+    if (!$competition) {
+        dd("COMPETITION NOT FOUND", $id);
+    }
+
+    /*
+    =====================
+    ZIP NATIONAL
+    =====================
+    */
+
+    $zip = new \App\Services\NationalZipService();
+
+    $zip->process($competition);
+
+    dd('N OK');
+}
+
+
+
+
+public function importregional($id)
+{
+    $client = new \App\Libraries\CopainClient();
+
+    /*
+    =====================
+    LOGIN
+    =====================
+    */
+
+    $client->autoLogin();
+
+    /*
+    =====================
+    IMPORT JSON → DB
+    =====================
+    */
+
+    $importer = new \App\Libraries\CopainImporter($client, $id);
+
+    $result = $importer->importCompetition($id, 1, 1);
+    //log_message('debug :', '$result = '.$result);
+
+    if (($result['code'] ?? 1) != 0) {
+        dd("IMPORT JSON FAIL", $result);
+    }
+
+    /*
+    =====================
+    LOAD DB
+    =====================
+    */
+
+    $model = new \App\Models\CompetitionModel();
+
+    $competition = $model->find($id);
+    
+    log_message('debug', 'COMPETITIONS COUNT=' . print_r($competition));
+
+    if (!$competition) {
+        dd("COMPETITION STILL NOT FOUND", $id);
+    }
+
+    /*
+    =====================
+    ZIP
+    =====================
+    */
+
+    $zip = new \App\Services\RegionalZipService();
+    //dd($zip);
+
+    $zip->process($competition);
+
+    dd('R OK');
+}
+
+public function importNationalFromCopain()
+{
+    $config = config('Copain');
+
+    $email    = $config->email;
+    $password = $config->password;
+
+    $legacy = new \App\Libraries\CopainLegacyReader();
+
+    /*
+    =====================
+    LOGIN + RÉCUP DATA
+    =====================
+    */
+
+    $data = $legacy->getCompetitions($email, $password);
+
+    if (!$data || $data['code'] != 0) {
+        dd("LOGIN FAIL", $data);
+    }
+
+    /*
+    =====================
+    FILTRER NATIONALES
+    =====================
+    */
+
+    $competitions = $data['competitions'] ?? [];
+
+    if (empty($competitions)) {
+        dd("AUCUNE COMPETITION NATIONALE");
+    }
+
+    /*
+    =====================
+    INSERT DB
+    =====================
+    */
+
+    $model = new \App\Models\CompetitionModel();
+
+    $count = 0;
+
+    foreach ($competitions as $c) {
+
+        // règle : national = urs_id NULL
+        $isNational = empty($c['urs_id']);
+
+        if (!$isNational) continue;
+
+        $model->save([
+            'id'     => $c['id'],
+            'nom'    => $c['nom'],
+            'saison' => $c['saison'],
+            'urs_id' => null,
+            'type'   => 0 // NATIONAL
+        ]);
+
+        $count++;
+    }
+    dd($data['competitions'][0]['id']);
+    dd($data['rcompetitions'][0]['id']);
+    dd("IMPORT NATIONAL OK", "Nb = " . $count);
+}
+
+    private function deleteDir($dir)
+    {
+        if (!is_dir($dir)) return;
+
+        $files = scandir($dir);
+
+        foreach ($files as $file) {
+
+            if ($file == '.' || $file == '..') continue;
+
+            $path = $dir . '/' . $file;
+
+            if (is_dir($path)) {
+                $this->deleteDir($path);
+            } else {
+                unlink($path);
+            }
+        }
+
+        rmdir($dir);
+    }
+
+    /*
+    =====================
+    TEST API
+    =====================
+    */
+
+    public function testCopainApi()
+    {
+        $reader = new CopainLegacyReader();
+
+        $data = $reader->getCompetitions(
+            $this->email,
+            $this->password
+        );
+
+        dd($data);
+    }
+
+    /*
+    =====================
+    TEST ZIP COMPLET
+    =====================
+    */
+
+    public function testZip()
+    {
+        $cookie = WRITEPATH . 'copain_cookie.txt';
+
+        if (file_exists($cookie)) {
+            unlink($cookie);
+        }
+
+        /*
+        LOGIN
+        */
+
+        $legacy = new \App\Libraries\CopainLegacyReader();
+
+        $login = $legacy->getCompetitions(
+            $this->email,
+            $this->password
+        );
+
+        if (!$login || $login['code'] != 0) {
+            dd("LOGIN FAIL", $login);
+        }
+
+        /*
+        CHOIX COMPET (ici régional pour test)
+        */
+
+        $compR = reset($login['rcompetitions']);
+
+        $ref   = $compR['id'];
+        $type  = $compR['type'] ?? 'O';
+        $ordre = $compR['ordre'] ?? 'non';
+
+        /*
+        CLIENT
+        */
+
+        $client = new \App\Libraries\CopainClient();
+
+        /*
+        IMPORT
+        */
+
+        $import = $client->importCompetition(
+            $ref,
+            $type,
+            $ordre
+        );
+
+        if (!$import || $import['code'] != 0) {
+            dd("IMPORT FAIL", $import);
+        }
+
+        /*
+        JSON COMPET
+        */
+
+        $json = file_get_contents($import['file_compet']);
+        $compet = json_decode($json, true);
+
+        if (!$compet) {
+            dd("JSON FAIL");
+        }
+
+        /*
+        DOSSIER
+        */
+
+        $folder =
+            $compet['saison'] . '_' .
+            str_pad($compet['urs_id'], 2, '0', STR_PAD_LEFT) . '_' .
+            $compet['numero'] . '_' .
+            $compet['id'];
+
+        $baseDir = FCPATH . 'uploads/competitions/' . $folder;
+
+        if (is_dir($baseDir)) {
+            $this->deleteDir($baseDir);
+        }
+
+        mkdir($baseDir, 0777, true);
+        mkdir($baseDir . '/photos', 0777, true);
+
+        /*
+        ZIP
+        */
+
+        $zip = $client->generateZip($ref, $type);
+
+        if (!$zip || $zip['code'] != 0) {
+            dd("ZIP FAIL", $zip);
+        }
+
+        /*
+        DOWNLOAD
+        */
+
+        $tmpZip = WRITEPATH . 'zip_' . $ref . '.zip';
+
+        $ok = $client->downloadFile(
+            $zip['zip_photos'],
+            $tmpZip
+        );
+
+        if (!$ok) {
+            dd("DOWNLOAD FAIL");
+        }
+
+        /*
+        EXTRACT
+        */
+
+        $zipArchive = new \ZipArchive;
+
+        if ($zipArchive->open($tmpZip) === TRUE) {
+            $zipArchive->extractTo($baseDir . '/photos');
+            $zipArchive->close();
+        } else {
+            dd("UNZIP FAIL");
+        }
+
+        /*
+        NORMALISATION
+        */
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($baseDir . '/photos')
+        );
+
+        $count = 0;
+
+        foreach ($iterator as $file) {
+
+            if ($file->isDir()) continue;
+
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
+            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) continue;
+
+            $newName = uniqid() . '.' . $ext;
+
+            rename(
+                $file->getPathname(),
+                $baseDir . '/photos/' . $newName
+            );
+
+            $count++;
+        }
+
+        /*
+        RESULTAT
+        */
+
+        dd(
+            "IMPORT ZIP OK",
+            "Images : " . $count,
+            "Dossier : " . $baseDir
+        );
+    }
+}

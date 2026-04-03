@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+
+Options +FollowSymLinks
+
+RewriteEngine On
+RewriteBase /coloc_v3/
+
+RewriteCond %{REQUEST_URI} !^/coloc_v3/public/
+RewriteRule ^(.*)$ public/$1 [L]
+
+</IfModule>

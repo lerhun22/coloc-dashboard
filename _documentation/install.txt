@@ -1,0 +1,184 @@
+Parfait 👍
+On va formaliser une **procédure officielle d’installation COLOC V3 (mono-utilisateur, macOS, MAMP)**.
+
+Objectif :
+👉 Reproductible
+👉 Stable
+👉 Sans Debug Toolbar
+👉 Sans plantage
+👉 Compatible UR22
+
+---
+
+# 📦 PRÉREQUIS
+
+* Mac (Intel ou Apple Silicon)
+* **MAMP 7.3**
+* ZIP COLOC V3
+* Base de données `.sql`
+
+---
+
+# 1️⃣ Installation MAMP
+
+1. Télécharger **MAMP 7.3**
+2. Installer dans `/Applications`
+3. Lancer MAMP
+
+Dans **Preferences > Ports** :
+
+```
+Apache : 8888
+MySQL  : 8889
+```
+
+---
+
+# 2️⃣ Configuration PHP
+
+Dans **Preferences > PHP** :
+
+👉 Sélectionner **PHP 8.3**
+
+Puis éditer :
+
+```
+/Applications/MAMP/bin/php/php8.3.x/conf/php.ini
+```
+
+Modifier :
+
+```ini
+memory_limit = 512M
+max_execution_time = 120
+```
+
+Redémarrer MAMP.
+
+---
+
+# 3️⃣ Installation COLOC V3
+
+Copier le dossier :
+
+```
+/Applications/MAMP/htdocs/coloc_v3
+```
+
+---
+
+# 4️⃣ Configuration `.env`
+
+À la racine de `coloc_v3` :
+
+```env
+CI_ENVIRONMENT = development
+
+app.baseURL = 'http://localhost:8888/coloc_v3/'
+
+database.default.hostname = localhost
+database.default.database = coloc
+database.default.username = root
+database.default.password = root
+database.default.DBDriver = MySQLi
+database.default.port = 8889
+
+logger.threshold = 2
+```
+
+⚠️ Important : `hostname = localhost` (socket plus stable que 127.0.0.1)
+
+---
+
+# 5️⃣ Désactiver Debug Toolbar
+
+Dans :
+
+```
+app/Config/Toolbar.php
+```
+
+Remplacer :
+
+```php
+public array $collectors = [];
+```
+
+---
+
+# 6️⃣ Créer la base
+
+Via phpMyAdmin :
+
+```
+http://localhost:8888/phpMyAdmin
+```
+
+Créer base :
+
+```
+coloc
+```
+
+Importer le fichier `.sql`
+
+---
+
+# 7️⃣ Vérifier permissions
+
+Dans `coloc_v3` :
+
+```
+writable/
+```
+
+Doit être accessible en écriture.
+
+---
+
+# 8️⃣ Test
+
+Ouvrir :
+
+```
+http://localhost:8888/coloc_v3/
+```
+
+Tester :
+
+* Accueil
+* Préparation
+* Aller-retour
+* Upload test
+
+---
+
+# 🎯 Configuration finale stable
+
+✔ PHP 8.3
+✔ 512M
+✔ Debug Toolbar OFF
+✔ logger.threshold = 2
+✔ localhost socket
+
+---
+
+# 🔒 Sauvegarde recommandée
+
+1. Stop MAMP
+2. Copier :
+
+```
+/Applications/MAMP
+```
+
+3. Export SQL
+
+---
+
+# 🧭 Version officielle UR22 recommandée
+
+* Mono-utilisateur
+* Local uniquement
+* Pas d’accès externe
+* Sauvegarde SQL régulière

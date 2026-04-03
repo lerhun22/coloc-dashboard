@@ -1,0 +1,93 @@
+/* =====================================================
+   HEADER
+===================================================== */
+
+.app-header {
+  background: #1e3a8a;
+  padding: 6px 0;
+}
+
+/* container principal */
+
+.header-container {
+  max-width: 1400px;
+
+  margin: 0 auto;
+
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+
+  flex-wrap: nowrap; /* IMPORTANT */
+}
+
+/* =====================
+   LOGO
+===================== */
+
+.header-brand {
+  color: white;
+
+  font-size: 18px;
+
+  font-weight: 600;
+
+  margin-right: 25px;
+
+  white-space: nowrap;
+}
+
+.header-brand a {
+  color: white;
+
+  text-decoration: none;
+}
+
+/* =====================
+   MENU
+===================== */
+
+.header-nav {
+  display: flex;
+
+  gap: 22px;
+
+  flex-wrap: nowrap; /* IMPORTANT */
+}
+
+.header-nav a {
+  color: rgba(255, 255, 255, 0.9);
+
+  text-decoration: none;
+
+  font-size: 15px;
+
+  white-space: nowrap;
+}
+
+.header-nav a:hover {
+  color: white;
+}
+
+/* =====================
+   BADGE DROITE
+===================== */
+
+.header-competition {
+  margin-left: auto;
+
+  white-space: nowrap;
+}
+
+.badge-competition {
+  background: rgba(255, 255, 255, 0.2);
+
+  color: white;
+
+  padding: 6px 12px;
+
+  border-radius: 8px;
+
+  font-size: 14px;
+}

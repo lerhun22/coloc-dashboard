@@ -1,0 +1,210 @@
+.
+├── LICENSE
+├── _1_INSTALL.tx
+├── _documentation
+│   ├── ameliorations.txt
+│   ├── base.txt
+│   ├── cmdline.txt
+│   ├── fil 1.txt
+│   ├── fil 2.txt
+│   ├── importation.txt
+│   ├── install.txt
+│   ├── structure.txt
+│   └── tables.txt
+├── app
+│   ├── Common.php
+│   ├── Config
+│   │   ├── App.php
+│   │   ├── Autoload.php
+│   │   ├── BaseConfig.php
+│   │   ├── Boot
+│   │   ├── CURLRequest.php
+│   │   ├── Cache.php
+│   │   ├── Constants.php
+│   │   ├── ContentSecurityPolicy.php
+│   │   ├── Cookie.php
+│   │   ├── Copain.php
+│   │   ├── Cors.php
+│   │   ├── Database.php
+│   │   ├── DocTypes.php
+│   │   ├── Email.php
+│   │   ├── Encryption.php
+│   │   ├── Events.php
+│   │   ├── Exceptions.php
+│   │   ├── Feature.php
+│   │   ├── Filters.php
+│   │   ├── ForeignCharacters.php
+│   │   ├── Format.php
+│   │   ├── Generators.php
+│   │   ├── Honeypot.php
+│   │   ├── Hostnames.php
+│   │   ├── Images.php
+│   │   ├── Kint.php
+│   │   ├── Logger.php
+│   │   ├── Migrations.php
+│   │   ├── Mimes.php
+│   │   ├── Modules.php
+│   │   ├── Optimize.php
+│   │   ├── Pager.php
+│   │   ├── Paths.php
+│   │   ├── Publisher.php
+│   │   ├── Routes.php
+│   │   ├── Routing.php
+│   │   ├── Security.php
+│   │   ├── Services.php
+│   │   ├── Session.php
+│   │   ├── Toolbar.php
+│   │   ├── UserAgents.php
+│   │   ├── Validation.php
+│   │   ├── View.php
+│   │   └── WorkerMode.php
+│   ├── Controllers
+│   │   ├── BaseController.php
+│   │   ├── Competitions.php
+│   │   ├── Dashboard.php
+│   │   ├── Home.php
+│   │   ├── Import
+│   │   ├── Jugement.php
+│   │   ├── Juges
+│   │   ├── Preparation
+│   │   ├── Tools
+│   │   └── structure_CI4.txt
+│   ├── Database
+│   │   ├── Migrations
+│   │   └── Seeds
+│   ├── Entities
+│   ├── Filters
+│   ├── Helpers
+│   ├── Language
+│   │   └── en
+│   ├── Libraries
+│   │   ├── CompetitionCleaner.php
+│   │   ├── CompetitionService.php
+│   │   ├── CompetitionStorage.php
+│   │   ├── CopainClient.php
+│   │   ├── CopainImporter.php
+│   │   └── CopainLegacyReader.php
+│   ├── Models
+│   │   ├── CompetitionModel.php
+│   │   ├── JugementModel.php
+│   │   ├── NoteModel.php
+│   │   └── PhotoModel.php
+│   ├── Services
+│   │   └── CopainImportService.php
+│   ├── ThirdParty
+│   ├── Views
+│   │   ├── competitions
+│   │   ├── dashboard
+│   │   ├── errors
+│   │   ├── jugement
+│   │   ├── juges
+│   │   ├── layout
+│   │   ├── preparation
+│   │   └── welcome_message.php
+│   └── index.html
+├── builds
+├── public
+│   ├── css
+│   │   ├── app.css
+│   │   ├── base.css
+│   │   ├── components.css
+│   │   ├── full.css
+│   │   ├── jugement-ori.css
+│   │   ├── jugement.css
+│   │   ├── layout.css
+│   │   ├── navigation.css
+│   │   ├── notation.css
+│   │   ├── pages.css
+│   │   ├── tables.css
+│   │   ├── tokens.css
+│   │   └── utilities.css
+│   ├── favicon.ico
+│   ├── index.php
+│   ├── js
+│   │   └── jugement.js
+│   ├── robots.txt
+│   ├── test.php
+│   ├── test_extract
+│   ├── testzip.php
+│   └── uploads
+│       ├── competitions
+│       └── index.html
+├── spark
+├── structure.txt
+├── vendor
+│   ├── autoload.php
+│   ├── bin
+│   │   ├── php-parse
+│   │   └── phpunit
+│   ├── codeigniter4
+│   │   └── framework
+│   ├── composer
+│   │   ├── ClassLoader.php
+│   │   ├── InstalledVersions.php
+│   │   ├── LICENSE
+│   │   ├── autoload_classmap.php
+│   │   ├── autoload_files.php
+│   │   ├── autoload_namespaces.php
+│   │   ├── autoload_psr4.php
+│   │   ├── autoload_real.php
+│   │   ├── autoload_static.php
+│   │   ├── installed.json
+│   │   ├── installed.php
+│   │   └── platform_check.php
+│   ├── fakerphp
+│   │   └── faker
+│   ├── laminas
+│   │   └── laminas-escaper
+│   ├── mikey179
+│   │   └── vfsstream
+│   ├── myclabs
+│   │   └── deep-copy
+│   ├── nikic
+│   │   └── php-parser
+│   ├── phar-io
+│   │   ├── manifest
+│   │   └── version
+│   ├── phpunit
+│   │   ├── php-code-coverage
+│   │   ├── php-file-iterator
+│   │   ├── php-invoker
+│   │   ├── php-text-template
+│   │   ├── php-timer
+│   │   └── phpunit
+│   ├── psr
+│   │   ├── container
+│   │   └── log
+│   ├── sebastian
+│   │   ├── cli-parser
+│   │   ├── code-unit
+│   │   ├── code-unit-reverse-lookup
+│   │   ├── comparator
+│   │   ├── complexity
+│   │   ├── diff
+│   │   ├── environment
+│   │   ├── exporter
+│   │   ├── global-state
+│   │   ├── lines-of-code
+│   │   ├── object-enumerator
+│   │   ├── object-reflector
+│   │   ├── recursion-context
+│   │   ├── type
+│   │   └── version
+│   ├── symfony
+│   │   └── deprecation-contracts
+│   └── theseer
+│       └── tokenizer
+└── writable
+    ├── cache
+    │   └── index.html
+    ├── copain_cookie.txt
+    ├── debugbar
+    ├── index.html
+    ├── logs
+    │   ├── index.html
+    │   └── log-2026-03-19.log
+    ├── session
+    │   └── index.html
+    └── zip_4366.zip
+
+89 directories, 119 files

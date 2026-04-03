@@ -1,0 +1,209 @@
+check_user (getCompetitions)
+→ session ouverte
+→ import_compet
+→ generate_zip
+→ download
+
+CopainLegacyReader ouvre la session
+CopainClient doit utiliser le même cookie
+
+
+
+Parfait, là on a enfin le comportement réel 👍
+et il est très important pour la suite de COLOC.
+
+Ta conclusion :
+
+> ✅ ça marche uniquement si on fait
+> `CopainLegacyReader → getCompetitions()`
+> puis `CopainImporter → importCompetition()`
+
+et pas autrement.
+
+Donc la vérité est :
+
+> ⚠️ La session COPAINS valide est ouverte uniquement par `getCompetitions()`
+> et pas par CopainClient.
+
+Et ça change l’architecture.
+
+On ne doit pas corriger le test…
+on doit corriger l’importer pour utiliser LegacyReader.
+
+---
+
+# ✅ 1 — Ce qui se passe réellement côté COPAINS
+
+Flux qui marche :
+
+```
+check_user (getCompetitions)
+→ session ouverte
+→ import_compet
+→ generate_zip
+→ download
+```
+
+Flux qui ne marche pas :
+
+```
+login
+→ import
+```
+
+Donc :
+
+```id="n0rq6y"
+CopainLegacyReader ouvre la session
+CopainClient doit utiliser le même cookie
+```
+
+et on doit garder ça.
+
+---
+
+# ✅ 2 — Architecture correcte pour COLOC
+
+Importer ne doit PAS supposer que la session existe.
+
+Il doit ouvrir la session lui-même.
+
+Donc CopainImporter doit faire :
+
+```
+LegacyReader
+→ login
+Client
+→ import
+→ zip
+```
+
+et pas Home.
+
+---
+
+# ✅ 3 — Corriger CopainImporter (solution propre)
+
+Modifier le constructeur.
+
+### AVANT
+
+```php
+private CopainClient $client;
+
+public function __construct(CopainClient $client)
+{
+    $this->client = $client;
+}
+```
+
+### APRES
+
+```php
+private CopainClient $client;
+private string $email;
+private string $password;
+
+public function __construct(
+    CopainClient $client,
+    $email,
+    $password
+)
+{
+    $this->client = $client;
+    $this->email = $email;
+    $this->password = $password;
+}
+```
+
+---
+
+# ✅ 4 — Ajouter login legacy dans importer
+
+Au début de importCompetition :
+
+```php
+use App\Libraries\CopainLegacyReader;
+```
+
+Puis :
+
+```php
+public function importCompetition($ref, $type, $ordre)
+{
+
+    /*
+    ======================
+    LOGIN LEGACY OBLIGATOIRE
+    ======================
+    */
+
+    $legacy = new CopainLegacyReader();
+
+    $login = $legacy->getCompetitions(
+        $this->email,
+        $this->password
+    );
+
+    if (!$login || $login['code'] != 0) {
+
+        return [
+            'code' => 'LOGIN_ERROR',
+            'login' => $login
+        ];
+    }
+```
+
+Ensuite seulement :
+
+```
+importCompetition
+generateZip
+etc
+```
+
+---
+
+# ✅ 5 — Test propre maintenant
+
+Home devient simple :
+
+```php
+public function testImport()
+{
+    $client = new CopainClient();
+
+    $importer = new CopainImporter(
+        $client,
+        "MAIL",
+        "PWD"
+    );
+
+    $result = $importer->importCompetition(
+        4366,
+        'N',
+        'non'
+    );
+
+    dd($result);
+}
+```
+
+Plus besoin de Legacy dans Home.
+
+---
+
+```
+
+Importer doit être autonome.
+
+---
+
+# ✅ 7 — Et c’est exactement ce qu’il faudra pour
+
+```
+COLOC distribué
+sync automatique
+import serveur
+import client
+```

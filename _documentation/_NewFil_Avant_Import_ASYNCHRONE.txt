@@ -1,0 +1,181 @@
+Bonne question 👍
+On a fait beaucoup d’essais dans ce fil, et certaines versions ont cassé le workflow.
+La bonne approche maintenant est de **repartir d’un ensemble cohérent de fichiers**, pas seulement un ou deux.
+
+Voici exactement **les fichiers à reprendre depuis ce fil**, et ceux à ignorer.
+
+---
+
+# ✅ FICHIERS À REPRENDRE (versions stables de ce fil)
+
+Ces versions fonctionnaient ensemble :
+
+## ✅ Controller
+
+```
+app/Controllers/ImportFromCopain.php
+```
+
+→ dernière version avec workflow step :
+
+* stepImport
+* stepZip
+* stepDownload
+* stepExtract
+* stepDone
+* progress()
+* logStep()
+
+👉 celle que je t’ai redonnée juste avant
+
+---
+
+## ✅ Library CopainClient
+
+```
+app/Libraries/CopainClient.php
+```
+
+→ version avec :
+
+* generateZip OK
+* downloadFile OK gros zip
+* getRemoteFileSize OK
+* cookie OK
+* curl stable
+
+👉 dernière version que je t’ai donnée
+
+---
+
+## ✅ Library CopainImporter
+
+```
+app/Libraries/CopainImporter.php
+```
+
+→ version avec :
+
+* competitions complet
+* saison
+* competitions_id
+* participants sans tirets
+* juges
+* medailles
+* notes
+* photos
+* transactions
+
+👉 dernière version que je t’ai donnée
+
+---
+
+## ✅ Views import
+
+```
+app/Views/import/copain.php
+app/Views/import/progress.php
+```
+
+→ version avec
+
+* progress bar
+* iframe download
+* iframe extract
+* logs
+* stats
+* steps
+
+👉 dernières versions que je t’ai données
+
+---
+
+## ✅ Routes
+
+```
+app/Config/Routes.php
+```
+
+→ version avec
+
+```
+competitions/import
+competitions/import/run
+```
+
+et
+
+```
+setAutoRoute(false)
+GET / POST majuscules
+```
+
+👉 dernière version donnée
+
+---
+
+# ⚠️ FICHIERS À NE PAS REPRENDRE (versions instables vues dans le fil)
+
+Ne pas reprendre :
+
+❌ anciennes versions avec CopainZipService cassé
+❌ anciennes versions avec extract dans importer
+❌ versions avec generateZip dans importer
+❌ versions sans step workflow
+❌ versions avec download direct sans progress
+❌ versions avec unlink dans import
+❌ versions avec zip dans transaction
+❌ versions avec return progress dans download
+❌ versions sans competitions_id
+❌ versions sans saison
+
+---
+
+# ✅ FICHIERS QUI NE DOIVENT PAS CHANGER
+
+Ne pas toucher :
+
+```
+CompetitionService
+CompetitionCleaner
+Competitions controller
+Jugement
+Models
+Layout
+CSS
+```
+
+Sinon tu risques d’avoir des bugs ailleurs.
+
+---
+
+# ✅ Ordre correct pour repartir propre
+
+1. Copier CopainClient
+2. Copier CopainImporter
+3. Copier ImportFromCopain
+4. Copier progress.php
+5. Copier copain.php
+6. Copier Routes.php
+7. Vider cache
+8. Redémarrer MAMP
+
+---
+
+# ✅ Nettoyage conseillé avant test
+
+Supprimer :
+
+```
+writable/import/*
+writable/uploads/competitions/*
+writable/cache/*
+```
+
+et redémarrer MAMP.
+
+---
+
+# ✅ Si tu veux
+
+Dans le nouveau fil on peut repartir d’un **pack propre minimal garanti stable**.

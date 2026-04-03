@@ -1,0 +1,287 @@
+Parfait 👍 — voilà un **résumé propre, exploitable et prêt pour commit/push**, fidèle à ce que tu as réellement fait ce matin.
+
+---
+
+# 🎯 📌 SITUATION DE DÉPART
+
+```text
+Version 253
+✔ Import Régional OK
+✔ Extract ZIP Copain OK
+❌ National KO
+❌ UX basique (page progress séparée)
+❌ Pas de filtrage utilisateur
+```
+
+---
+
+# 🚀 ✅ ÉVOLUTIONS RÉALISÉES
+
+## 🧠 1 — FIX MAJEUR : NATIONAL / RÉGIONAL
+
+✔ correction du workflow Copain (session obligatoire via Legacy)
+✔ distinction fiable :
+
+```text
+type = N / R
+urs_id null → National
+urs_id != null → Régional
+```
+
+✔ import National maintenant OK
+
+---
+
+## 📦 2 — IMPORT ASYNCHRONE STABLE
+
+✔ workflow `ImportWorkflow` fiabilisé
+✔ étapes validées :
+
+```text
+download_json
+download_zip
+extract_zip
+move_files
+thumbs
+done
+```
+
+✔ gestion gros ZIP (chunk) OK
+✔ plus de blocage sur >50MB
+
+---
+
+## 🎯 3 — IMPORT DANS LA CARD (UX MAJEURE)
+
+✔ suppression page `progress`
+✔ import inline via AJAX :
+
+```text
+startImport(mode=card)
+tickCard()
+```
+
+✔ progression en direct dans la card :
+
+* barre %
+* label étape
+* état dynamique
+
+✔ correction bug bloquant :
+
+```text
+❌ else stoppait le workflow
+✅ boucle tickCard rétablie
+```
+
+---
+
+## 🎨 4 — UI / UX
+
+### ✔ Cards en grille
+
+✔ responsive OK
+✔ structure propre
+
+### ✔ Badges améliorés
+
+```text
+National → violet
+Régional → bleu
+```
+
+✔ meilleure lisibilité (plus confondu avec bouton)
+
+---
+
+## 🔍 5 — FILTRES MÉTIER
+
+✔ filtre Type :
+
+```text
+Tous / National / Régional
+```
+
+✔ filtre UR dynamique :
+
+```text
+liste issue de Copain (pas DB locale)
+```
+
+✔ normalisation UR :
+
+```text
+01, 02, 22...
+```
+
+✔ comportement utilisateur :
+
+| Profil              | Comportement             |
+| ------------------- | ------------------------ |
+| CommissaireNational | voit tout                |
+| CommissaireRegional | voit uniquement régional |
+
+✔ auto-filtre au chargement
+
+---
+
+## 🧾 6 — NOMMAGE DOSSIERS CORRIGÉ
+
+✔ format final :
+
+```text
+YYYY_UR_NUM_ID
+ex : 2026_02_2_4307
+```
+
+✔ UR sur 2 digits (fix critique)
+
+---
+
+## 🧹 7 — CLEANUP
+
+✔ suppression :
+
+```text
+writable/import
+writable/imports/tmp
+zip temporaires
+```
+
+✔ structure finale propre :
+
+```text
+public/uploads/competitions/{folder}/
+    photos/
+    thumbs/
+    pte/
+    pdf/
+```
+
+---
+
+## 🔗 8 — REDIRECTION FINALE
+
+✔ correction route :
+
+```text
+❌ /competitions/{id}/jugement
+✅ /jugement/{id}
+```
+
+✔ redirection automatique après import
+
+---
+
+# 🐛 ✅ BUGS CORRIGÉS
+
+✔ `tickCard undefined`
+✔ blocage "Initialisation"
+✔ mauvais `else` dans JS
+✔ mauvais `DISTINCT` SQL CI4
+✔ UR non normalisées
+✔ grid non appliquée (container)
+✔ route jugement incorrecte
+✔ filtre UR incomplet (DB → Copain)
+
+---
+
+# 📁 FICHIERS IMPACTÉS
+
+```text
+Controllers
+- ImportFromCopain.php
+
+Libraries
+- CopainImporter.php
+- ImportWorkflow.php
+
+Views
+- import/copain.php
+- import/card.php
+
+Config
+- Routes.php
+- Copain.php
+
+CSS
+- import.css
+```
+
+---
+
+# 🎯 📊 ÉTAT ACTUEL
+
+```text
+✔ Import Régional OK
+✔ Import National OK
+✔ ZIP OK (gros volumes)
+✔ Extract OK
+✔ Thumbs OK
+✔ UI fluide (card async)
+✔ Filtres métier OK
+✔ Redirection OK
+```
+
+---
+
+# 🧱 📝 COMMIT PROPOSÉ
+
+## 🟢 MESSAGE COURT
+
+```text
+feat: import Copain async avec UI card + support national + filtres UR/profil
+```
+
+---
+
+## 🟢 MESSAGE DÉTAILLÉ
+
+```text
+feat(import):
+
+- Ajout import async directement dans les cards (suppression vue progress)
+- Gestion complète workflow ImportWorkflow (download, extract, move, thumbs)
+- Support import National (fix session Copain via Legacy)
+- Gestion ZIP volumineux en chunk (stable >50MB)
+- Ajout progression live (bar + labels)
+- Ajout filtres Type + UR dynamiques
+- Intégration règles métier (profil Commissaire National/Régional)
+- Correction format dossier (UR sur 2 digits)
+- Nettoyage fichiers temporaires après import
+- Amélioration UI (grid cards, badges distincts)
+- Correction route redirection jugement
+
+fix:
+- tickCard undefined
+- blocage workflow JS
+- SQL DISTINCT CI4
+- UR filter incomplet
+```
+
+---
+
+# 🚀 📤 PUSH
+
+```bash
+git add .
+git commit -m "feat(import): import Copain async + national + filtres UR"
+git push
+```
+
+---
+
+# 🎯 PROCHAINE ÉTAPE
+
+👉 logique naturelle maintenant :
+
+```text
+- sécurisation backend (filtrage réel)
+- optimisation extract (batch)
+- multi import
+- stats / suivi import
+```
+
+---
+
+Si tu veux, je peux te préparer un **plan de refactor V4 propre (architecture finale)** 👍

@@ -1,0 +1,123 @@
+les 2 dossiers sont utiles**
+ils n’ont pas le même rôle** → et c’est ça qu’il faut verrouiller
+
+---
+
+# 🧱 🧠 RÈGLE D’ARCHITECTURE (IMPORTANT)
+
+## 📦 1. `writable/import/` → **zone de réception brute**
+
+👉 utilisé pour :
+
+```bash
+ZIP téléchargé
+```
+
+```php
+WRITEPATH . 'import/' . $ref . '.zip'
+```
+
+✔ téléchargement simple
+✔ pas de sous-dossiers
+✔ fichier temporaire
+
+---
+
+## 📦 2. `writable/imports/` → **zone de travail (processing)**
+
+👉 utilisé pour :
+
+```bash
+tmp extraction
+chunks
+state download
+size.txt
+```
+
+ex :
+
+```bash
+imports/tmp_714/
+imports/714/size.txt
+```
+
+✔ extraction temporaire
+✔ progression download
+✔ stockage intermédiaire
+
+---
+
+# ⚠️ 👉 POURQUOI TON SYSTÈME A BESOIN DES 2
+
+Parce que ton workflow est **asynchrone + chunké** :
+
+```
+download ZIP → import/
+processing → imports/
+final → public/uploads/
+```
+
+👉 Si tu mélanges :
+
+* tu écrases les fichiers
+* tu perds le suivi de progression
+* tu casses le cleanup
+
+---
+
+# 🔥 🧩 TON PIPELINE RÉEL (corrigé et validé)
+
+```
+STEP 1 — JSON
+    (pas de fichiers)
+
+STEP 2 — DOWNLOAD
+    import/{id}.zip
+
+STEP 3 — WORK
+    imports/tmp_{id}/
+    imports/{id}/size.txt
+
+STEP 4 — FINAL
+    public/uploads/competitions/{slug}/
+
+STEP 5 — CLEAN
+    import/ ❌
+    imports/ ❌
+```
+
+---
+
+# 🚨 TON PROBLÈME ACTUEL (gros ZIP)
+
+👉 Il est ici :
+
+```
+download OK
+MAIS
+extract jamais déclenché
+```
+
+👉 ET NON pas lié aux dossiers
+
+✔ ta séparation import/imports est bonne
+❌ ton workflow async est incomplet
+
+---
+
+# 🧹 CLEANUP
+
+La logique :
+
+```php
+import/{zip} supprimé
+imports/tmp supprimé
+```
+
+| Dossier | Rôle          |
+| ------- | ------------- |
+| import  | réception ZIP |
+| imports | traitement    |
+| uploads | final         |
+
+---

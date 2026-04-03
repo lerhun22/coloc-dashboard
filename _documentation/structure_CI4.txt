@@ -1,0 +1,135 @@
+
+Garder la structure COPAINS / COLOC legacy du type
+
+```text
+2026_22_1_4366
+```
+
+est le meilleur choix, car tout le reste du système semble déjà basé dessus
+(PTE, PDF, exports, diaporamas, jugement, fédé, etc.).
+
+On va donc figer ça comme **identifiant officiel de dossier compétition**.
+
+---
+
+## ✅ Format du dossier compétition
+
+```text
+AAAA_UR_TYPE_NUMERO
+```
+
+Exemple :
+
+```text
+2026_22_1_4366
+```
+
+Signification typique :
+
+| Partie | Exemple          | Signification |
+| ------ | ---------------- | ------------- |
+| AAAA   | 2026             | saison        |
+| 22     | UR22             |               |
+| 1      | type compétition |               |
+| 4366   | numéro           |               |
+
+On garde exactement ce format.
+
+---
+
+## ✅ Structure finale officielle COLOC CI4
+
+```text
+/uploads/
+
+    zip/
+
+    competitions/
+
+        2026_22_1_4366/
+            photos/
+            thumbs/
+            pdf/
+            pte/
+            export/
+            temp/
+
+        2026_22_1_4367/
+            photos/
+            thumbs/
+            pdf/
+            pte/
+            export/
+            temp/
+```
+
+---
+
+## ✅ Emplacement du ZIP
+
+```text
+/uploads/zip/
+```
+
+Exemple :
+
+```text
+/uploads/zip/2026_22_1_4366.zip
+```
+
+Import :
+
+```
+zip → unzip → /uploads/competitions/2026_22_1_4366/
+```
+
+---
+
+## ✅ Important pour CI4
+
+Il faudra toujours construire le chemin avec le code compétition :
+
+```php
+$code = '2026_22_1_4366';
+
+$path = WRITEPATH . 'uploads/competitions/' . $code . '/photos/';
+```
+
+ou
+
+```php
+$base = WRITEPATH . 'uploads/competitions/' . $code;
+```
+
+---
+
+## ✅ Avantage de garder ce format
+
+✔ compatible COPAINS
+✔ compatible COLOC legacy
+✔ compatible PTE
+✔ compatible export fédé
+✔ compatible UR
+✔ pas de migration
+✔ pas de conversion
+✔ pas de bug
+
+---
+
+## ✅ Prochaine étape logique
+
+👉 fonction CI4
+
+Créer automatiquement
+
+```
+/uploads/competitions/2026_22_1_4366/
+photos/
+thumbs/
+pdf/
+pte/
+export/
+temp/
+```
+
+avant import ZIP.

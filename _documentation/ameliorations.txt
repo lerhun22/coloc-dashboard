@@ -1,0 +1,63 @@
+IMPORTANT !!!!!
+
+Règle simple :
+Toute page avec competition_id → met la session
+session()->set('competition_id', $id);
+Toujours
+
+
+JUGEMENT
+
+tri automatique
+navigation intelligente
+sauvegarde batch
+auto next après note
+mode jury rapide
+mode plein écran
+
+css
+
+photo active surlignée dans grille
+auto scroll grille
+zoom double clic
+plein écran photo
+mode jury rapide
+navigation souris
+tri par état
+barre de progression visuelle
+
+
+⭐ RECOMMANDATION POUR TERMINER JUGEMENT
+Ordre idéal :
+1️⃣ photo active + scroll + auto next
+2️⃣ barre progression
+3️⃣ navigation intelligente
+4️⃣ mode jury rapide
+5️⃣ plein écran
+6️⃣ batch save
+7️⃣ tri automatique
+➡️ stable
+➡️ progressif
+➡️ pas de régression
+
+
+git remote add origin https://github.com/TON_USER/coloc.git
+
+lerhun22
+https://github.com/lerhun22/COLOC
+
+git remote add origin https://github.com/lerhun22/COLOC.git
+
+
+À partir de maintenant :
+avant modification majeure :
+
+%git commit -am "point stable"
+
+et on pourra ajouter :
+
+auto next
+scroll
+mode jury
+tri
+batch

@@ -1,0 +1,244 @@
+   public function copain($id)
+
+    {
+        $email = "xx";
+        $password = "xx";
+
+        $cookie = WRITEPATH . 'copain_cookie.txt';
+
+        if (file_exists($cookie)) {
+            unlink($cookie);
+        }
+
+        $legacy = new \App\Libraries\CopainLegacyReader();
+
+        $login = $legacy->getCompetitions(
+            $email,
+            $password
+        );
+
+        if ($login['code'] != 0) {
+            dd($login);
+        }
+
+        //dd($login);
+
+        $comp = reset($login['rcompetitions']);
+
+        //dd($comp);
+
+        $client = new \App\Libraries\CopainImporter();
+
+        $import = $client->importCompetition(
+            723,
+            "R",
+            'oui'
+        );
+
+        dd($import);
+=>
+
+$response array (8)
+file_compet => string (63) "https://copain.federation-photo.fr/webroot/json/compet_723.json"
+file_juge => string (62) "https://copain.federation-photo.fr/webroot/json/juges_723.json"
+file_club => string (61) "https://copain.federation-photo.fr/webroot/json/club_723.json"
+file_user => string (61) "https://copain.federation-photo.fr/webroot/json/user_723.json"
+file_photos => string (63) "https://copain.federation-photo.fr/webroot/json/photos_723.json"
+file_note => string (62) "https://copain.federation-photo.fr/webroot/json/notes_723.json"
+file_medaille => string (66) "https://copain.federation-photo.fr/webroot/json/medailles_723.json"
+code => string (1) "0"
+↧Called from <ROOT>/coloc_v3/app/Libraries/CopainImporter.php:130 [dd()]
+
+=> https://copain.federation-photo.fr/webroot/json/compet_723.json
+{"id":"723","numero":"48","urs_id":"12","saison":"2015","nom":"Fevrier2015DouzeUR","clubs_id":"879","commissaire":"3541","date_competition":"2015-02-25","max_photos_club":"0","max_photos_auteur":"1","param_photos_club":"3","param_photos_auteur":"150","date_debut_saisie":"0000-00-00","date_fin_saisie":"2015-02-13","date_resultat":"2015-02-26","selection":"I","niveau":"0","type_jugement":"i","statut":"0","formats_id":"3","note_min":"3","note_max":"10","nature":"0","n2":"0","etiquettes":"0","min_photos_concours_auteur":"0","max_photos_concours_auteur":"0","open":"1","phase_medaille":"0","est_challenge":"0","challenge_parent_id":null,"infos":null,"quota":0,"nb_auteurs_ur_n2":"3","nb_clubs_ur_n2":"6"}
+
+si
+
+        $import = $client->importCompetition(
+            723,
+            "N",
+            'oui'
+        );
+
+$response array (8)
+file_compet => string (63) "https://copain.federation-photo.fr/webroot/json/compet_723.json"
+file_juge => string (62) "https://copain.federation-photo.fr/webroot/json/juges_723.json"
+file_club => string (61) "https://copain.federation-photo.fr/webroot/json/club_723.json"
+file_user => string (61) "https://copain.federation-photo.fr/webroot/json/user_723.json"
+file_photos => string (63) "https://copain.federation-photo.fr/webroot/json/photos_723.json"
+file_note => string (62) "https://copain.federation-photo.fr/webroot/json/notes_723.json"
+file_medaille => string (66) "https://copain.federation-photo.fr/webroot/json/medailles_723.json"
+code => string (1) "0"
+↧Called from <ROOT>/coloc_v3/app/Libraries/CopainImporter.php:130 [dd()]
+
+"id":"723","numero":"11","prefixe":"PMN1","type":"2","urs_id":null,"saison":"2026","nom":"National 1 Papier Monochrome","mail":"noir.blanc@federation-photo.fr","clubs_id":"408","commissaire":"287","date_competition":"2026-02-13","max_photos_club":"18","max_photos_auteur":"4","param_photos_club":"15","param_photos_auteur":"0","quota":"0","date_debut_saisie":"2025-12-01","date_fin_saisie":"2026-01-25","date_resultat":"2026-02-22","selection":"C","type_jugement":"l","statut":"6","formats_id":"1","florilege":"38","note_min":"6","note_max":"20","nature":"0","etiquettes":"1","min_photos_concours_auteur":"0","max_photos_concours_auteur":"0","affichage_general":"1","phase_medaille":"1","open":"0","openfed_debut_prejugement":null,"openfed_fin_prejugement":null,"openfed_debut_jugement":null,"openfed_fin_jugement":null,"openfed_note_min":"6","openfed_note_max":"20","openfed_place_selection":"150","date_confirmation_inscription":"2025-10-31","est_challenge":"0","challenge_parent_id":null,"infos":"","nb_auteurs_ur_n2":"3","nb_clubs_ur_n2":"6"}
+
+si erreur mot de passe code 13
+
+$login array (5)
+code => string (2) "13"
+taille => integer 0
+taille2 => integer 0
+competitions => null
+rcompetitions => null
+↧Called from <ROOT>/coloc_v3/app/Controllers/ImportTest.php:64 [dd()]
+
+
+Parfait 👍 — on va figer ça proprement pour repartir sur une base saine dans un nouveau fil.
+
+---
+
+# 🎯 RÉSUMÉ FINAL — IMPORT COPAIN (VERSION STABLE)
+
+## 💥 Problème rencontré
+
+* Impossible de distinguer correctement **National / Régional**
+* `type` envoyé à `importCompetition` semblait ignoré
+* Même ID → résultats incohérents (souvent régional)
+
+---
+
+## 🔍 Cause réelle (critique)
+
+👉 Copain fonctionne avec une **session serveur obligatoire**
+
+```text
+login → session PHP → cookie → importCompetition
+```
+
+👉 MAIS :
+
+```text
+CopainClient->login() ❌ insuffisant
+CopainLegacyReader->getCompetitions() ✅ obligatoire
+```
+
+---
+
+## 💡 Découverte clé
+
+👉 Seul ceci initialise correctement la session :
+
+```php
+$legacy->getCompetitions($email, $password);
+```
+
+👉 Ensuite :
+
+```php
+$client->importCompetition($id, "N" ou "R", 'oui');
+```
+
+👉 fonctionne parfaitement ✔
+
+---
+
+## 🎯 Workflow correct
+
+```text
+1. LOGIN (via CopainLegacyReader)
+2. SESSION + COOKIE actifs
+3. importCompetition(id, type)
+4. récupération JSON
+5. normalize → DB
+```
+
+---
+
+## ⚠️ Points importants
+
+### ❌ À NE PAS FAIRE
+
+* utiliser uniquement `CopainClient->login()`
+* multiplier les instances de client
+* essayer de deviner National/Régional sans session
+
+---
+
+### ✅ À FAIRE
+
+* login UNE SEULE FOIS via Legacy
+* réutiliser le cookie
+* passer `"N"` ou `"R"` explicitement
+* enchaîner les appels dans la même session
+
+---
+
+## 🧱 Architecture validée
+
+```text
+Controller
+   ↓
+CopainImportService
+   ↓
+[LOGIN via CopainLegacyReader]  ← 🔥 clé
+   ↓
+CopainClient (importCompetition)
+   ↓
+JSON
+   ↓
+normalize
+   ↓
+ImportWorkflow
+   ↓
+DB
+```
+
+---
+
+## 🧪 Tests validés
+
+| Cas           | Résultat    |
+| ------------- | ----------- |
+| `"R"`         | Régional OK |
+| `"N"`         | National OK |
+| mauvais login | code 13 OK  |
+
+---
+
+# 🚀 PROCHAIN FIL
+
+👉 Objectif :
+
+## 👉 FINALISER L’IMPORT COMPLET
+
+### 1️⃣ Photos JSON → DB
+
+* mapping propre
+* participants
+* titres
+* EAN
+
+### 2️⃣ Images
+
+* ZIP Copain (si dispo)
+* fallback HTTP
+* stockage local
+
+### 3️⃣ Nettoyage
+
+* simplifier services
+* supprimer legacy inutile
+* stabiliser workflow
+
+---
+
+# 💬 Nouveau fil (à lancer)
+
+Tu peux démarrer avec :
+
+```text
+On repart sur une base propre.
+
+Contexte :
+- import Copain OK (login via Legacy + session)
+- distinction National / Régional OK
+- récupération JSON OK
+
+Objectif :
+implémenter l’import des photos (JSON → DB) proprement dans ImportWorkflow.
+```
+
+---
+
+👉 Et là on enchaîne proprement, sans repartir dans les bugs 👍

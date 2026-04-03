@@ -1,0 +1,1630 @@
+Statut Mardi 24 Mars 2026
+
+Parfait, on va faire un **résumé propre et complet de toute l’implémentation Import COPAINS async**, avec :
+
+* fichiers modifiés
+* workflow final
+* bugs restants
+* corrections à faire
+* nettoyage dossiers temporaires
+* état stable avant nouveau fil
+
+---
+
+# ✅ 1 — Objectif atteint
+
+Import COPAINS stable avec :
+
+```
+✔ import JSON
+✔ import DB
+✔ génération ZIP
+✔ download gros ZIP (200MB+)
+✔ extract
+✔ reconstruction structure
+✔ génération thumbs
+✔ workflow async sans timeout
+✔ compatible MAMP / CI4 / navigateur
+```
+
+Architecture finale :
+
+```
+ImportWorkflow (state.json)
+ImportFromCopain controller async
+CopainImporter (import / zip / extract)
+CopainClient (API)
+CopainLegacyReader (liste compétitions)
+GenererVignettes (thumbs)
+```
+
+---
+
+# ✅ 2 — Fichiers modifiés / créés
+
+## Controllers
+
+```
+app/Controllers/ImportFromCopain.php
+app/Controllers/Tools/GenererVignettes.php
+```
+
+## Libraries
+
+```
+app/Libraries/CopainImporter.php
+app/Libraries/CopainClient.php
+app/Libraries/ImportWorkflow.php
+app/Libraries/CopainLegacyReader.php
+```
+
+## Views
+
+```
+app/Views/import/copain.php
+app/Views/import/progress.php
+```
+
+## Config
+
+```
+app/Config/Routes.php
+app/Config/Copain.php
+```
+
+## Services
+
+```
+app/Services/CopainImportService.php
+```
+
+---
+
+# ✅ 3 — Workflow final
+
+```
+/competitions/import
+        ↓
+ImportFromCopain::index
+        ↓
+CopainLegacyReader -> liste
+        ↓
+clic compétition
+        ↓
+/import/start/{id}
+        ↓
+ImportWorkflow state.json
+        ↓
+progress.php
+        ↓
+step()
+```
+
+Steps :
+
+```
+download_json
+download_zip
+extract_zip
+done
+```
+
+---
+
+# ✅ 4 — Step détaillé
+
+### STEP 1
+
+```
+CopainImporter->importCompetition()
+```
+
+→ JSON
+→ DB
+
+---
+
+### STEP 2
+
+```
+CopainImporter->downloadChunk()
+```
+
+→ generateZip
+→ downloadFile
+→ writable/import/{id}.zip
+
+---
+
+### STEP 3
+
+```
+CopainImporter->extractChunk()
+```
+
+→ extract tmp
+→ créer structure
+
+```
+public/uploads/competitions/
+    2026_22_5_4450/
+        photos/
+        thumbs/
+        pte/
+        pdf/
+```
+
+→ déplacer JPG
+→ GenererVignettes
+
+---
+
+### STEP 4
+
+```
+ImportWorkflow->done()
+```
+
+→ status done
+→ progress 100
+
+---
+
+# ❌ 5 — Problèmes actuels
+
+## ❌ progress affiche undefined %
+
+Cause :
+
+```
+progress pas renvoyé correctement
+```
+
+Fix :
+
+ImportWorkflow.php
+
+```php
+public function done()
+{
+    $this->setState([
+        'step' => 'done',
+        'progress' => 100,
+        'status' => 'done'
+    ]);
+}
+```
+
+---
+
+## ❌ pas de redirection fin import
+
+progress.php
+
+doit contenir :
+
+```js
+if (s.step !== "done") {
+
+    setTimeout(tick, 500);
+
+} else {
+
+    window.location =
+        "<?= site_url('competitions') ?>/" +
+        id +
+        "/photos";
+}
+```
+
+---
+
+## ❌ dossier temporaires non supprimés
+
+Actuellement :
+
+```
+writable/import/
+writable/imports/
+writable/imports/tmp_xxx
+```
+
+Il faut nettoyer après extract.
+
+---
+
+# ✅ 6 — Nettoyage à faire après extract
+
+Dans extractChunk ajouter à la fin :
+
+```php
+// cleanup
+
+$zip =
+    WRITEPATH . 'import/' . $ref . '.zip';
+
+$tmp =
+    WRITEPATH . 'imports/tmp_' . $ref;
+
+if (file_exists($zip))
+    unlink($zip);
+
+if (is_dir($tmp)) {
+
+    $files = scandir($tmp);
+
+    foreach ($files as $f) {
+
+        if ($f == '.' || $f == '..') continue;
+
+        unlink($tmp.'/'.$f);
+    }
+
+    rmdir($tmp);
+}
+```
+
+et aussi :
+
+```
+imports/{id}
+```
+
+si utilisé.
+
+---
+
+# ✅ 7 — Structure finale attendue
+
+```
+public/uploads/competitions/
+
+    2026_22_5_4450/
+
+        photos/
+        thumbs/
+        pte/
+        pdf/
+```
+
+et plus rien dans
+
+```
+writable/import
+writable/imports
+```
+
+---
+
+# ✅ 8 — Routes utilisées
+
+```
+competitions/import
+import/start/{id}
+import/progress/{id}
+import/step/{id}
+```
+
+ordre important dans Routes.php.
+
+---
+
+# ✅ 9 — Etat stable actuel
+
+On peut dire :
+
+```
+Import COPAINS V3 stable
+async OK
+gros ZIP OK
+thumbs OK
+structure OK
+```
+
+reste :
+
+```
+redirect
+progress 100
+cleanup
+```
+
+petites corrections.
+
+---
+
+# ✅ 10 — OK pour nouveau fil
+
+Tu peux ouvrir un nouveau fil avec :
+
+```
+COLOC CI4 — Import Copains finalisation
+cleanup + progress + redirect + optimisation
+```
+
+-> copie système de fichiers : coloc_v3 3 - Import Asynchrone - petite competition
+
+Pour les compétitions lourdes > 50 Mo , la génération de la structure de fichiers n'est pas réalisée.
+public/uploads/competitions/2026_22_5_4450
+public/uploads/competitions/2026_22_5_4450/pdf
+public/uploads/competitions/2026_22_5_4450/photos
+public/uploads/competitions/2026_22_5_4450/pte
+public/uploads/competitions/2026_22_5_4450/thumbs
+
+Il faudrait identifier dans la gestion des états la fin du download et afficher un indicateur par paquet de 50Mo par exemple
+
+- Nettoyer Import et Imports après IMPORT
+- Afficher la compétition apès IMPORT
+
+Parfait, on va faire un **résumé propre et complet de toute l’implémentation Import COPAINS async**, avec :
+
+* fichiers modifiés
+* workflow final
+* bugs restants
+* corrections à faire
+* nettoyage dossiers temporaires
+* état stable avant nouveau fil
+
+Je fais volontairement un résumé structuré pour que tu puisses repartir proprement.
+
+---
+
+# ✅ 1 — Objectif atteint
+
+Import COPAINS stable avec :
+
+```
+✔ import JSON
+✔ import DB
+✔ génération ZIP
+✔ download gros ZIP (200MB+)
+✔ extract
+✔ reconstruction structure
+✔ génération thumbs
+✔ workflow async sans timeout
+✔ compatible MAMP / CI4 / navigateur
+```
+
+Architecture finale :
+
+```
+ImportWorkflow (state.json)
+ImportFromCopain controller async
+CopainImporter (import / zip / extract)
+CopainClient (API)
+CopainLegacyReader (liste compétitions)
+GenererVignettes (thumbs)
+```
+
+---
+
+# ✅ 2 — Fichiers modifiés / créés
+
+## Controllers
+
+```
+app/Controllers/ImportFromCopain.php
+app/Controllers/Tools/GenererVignettes.php
+```
+
+## Libraries
+
+```
+app/Libraries/CopainImporter.php
+app/Libraries/CopainClient.php
+app/Libraries/ImportWorkflow.php
+app/Libraries/CopainLegacyReader.php
+```
+
+## Views
+
+```
+app/Views/import/copain.php
+app/Views/import/progress.php
+```
+
+## Config
+
+```
+app/Config/Routes.php
+app/Config/Copain.php
+```
+
+## Services
+
+```
+app/Services/CopainImportService.php
+```
+
+---
+
+# ✅ 3 — Workflow final
+
+```
+/competitions/import
+        ↓
+ImportFromCopain::index
+        ↓
+CopainLegacyReader -> liste
+        ↓
+clic compétition
+        ↓
+/import/start/{id}
+        ↓
+ImportWorkflow state.json
+        ↓
+progress.php
+        ↓
+step()
+```
+
+Steps :
+
+```
+download_json
+download_zip
+extract_zip
+done
+```
+
+---
+
+# ✅ 4 — Step détaillé
+
+### STEP 1
+
+```
+CopainImporter->importCompetition()
+```
+
+→ JSON
+→ DB
+
+---
+
+### STEP 2
+
+```
+CopainImporter->downloadChunk()
+```
+
+→ generateZip
+→ downloadFile
+→ writable/import/{id}.zip
+
+---
+
+### STEP 3
+
+```
+CopainImporter->extractChunk()
+```
+
+→ extract tmp
+→ créer structure
+
+```
+public/uploads/competitions/
+    2026_22_5_4450/
+        photos/
+        thumbs/
+        pte/
+        pdf/
+```
+
+→ déplacer JPG
+→ GenererVignettes
+
+---
+
+### STEP 4
+
+```
+ImportWorkflow->done()
+```
+
+→ status done
+→ progress 100
+
+---
+
+# ❌ 5 — Problèmes actuels
+
+## ❌ progress affiche undefined %
+
+Cause :
+
+```
+progress pas renvoyé correctement
+```
+
+Fix :
+
+ImportWorkflow.php
+
+```php
+public function done()
+{
+    $this->setState([
+        'step' => 'done',
+        'progress' => 100,
+        'status' => 'done'
+    ]);
+}
+```
+
+---
+
+## ❌ pas de redirection fin import
+
+progress.php
+
+doit contenir :
+
+```js
+if (s.step !== "done") {
+
+    setTimeout(tick, 500);
+
+} else {
+
+    window.location =
+        "<?= site_url('competitions') ?>/" +
+        id +
+        "/photos";
+}
+```
+
+---
+
+## ❌ dossier temporaires non supprimés
+
+Actuellement :
+
+```
+writable/import/
+writable/imports/
+writable/imports/tmp_xxx
+```
+
+Il faut nettoyer après extract.
+
+---
+
+# ✅ 6 — Nettoyage à faire après extract
+
+Dans extractChunk ajouter à la fin :
+
+```php
+// cleanup
+
+$zip =
+    WRITEPATH . 'import/' . $ref . '.zip';
+
+$tmp =
+    WRITEPATH . 'imports/tmp_' . $ref;
+
+if (file_exists($zip))
+    unlink($zip);
+
+if (is_dir($tmp)) {
+
+    $files = scandir($tmp);
+
+    foreach ($files as $f) {
+
+        if ($f == '.' || $f == '..') continue;
+
+        unlink($tmp.'/'.$f);
+    }
+
+    rmdir($tmp);
+}
+```
+
+et aussi :
+
+```
+imports/{id}
+```
+
+si utilisé.
+
+---
+
+# ✅ 7 — Structure finale attendue
+
+```
+public/uploads/competitions/
+
+    2026_22_5_4450/
+
+        photos/
+        thumbs/
+        pte/
+        pdf/
+```
+
+et plus rien dans
+
+```
+writable/import
+writable/imports
+```
+
+---
+
+# ✅ 8 — Routes utilisées
+
+```
+competitions/import
+import/start/{id}
+import/progress/{id}
+import/step/{id}
+```
+
+ordre important dans Routes.php.
+
+---
+
+# ✅ 9 — Etat stable actuel
+
+On peut dire :
+
+```
+Import COPAINS V3 stable
+async OK
+gros ZIP OK
+thumbs OK
+structure OK
+```
+
+reste :
+
+```
+redirect
+progress 100
+cleanup
+```
+
+petites corrections.
+
+---
+
+# ✅ 10 — OK pour nouveau fil
+
+Tu peux ouvrir un nouveau fil avec :
+
+```
+COLOC CI4 — Import Copains finalisation
+cleanup + progress + redirect + optimisation
+```
+
+et on repart proprement.
+
+
+
+
+OK, là on touche au vrai problème des grosses compétitions 👍
+Ce n’est plus un bug de chemin, mais un bug de workflow async :
+
+```
+ZIP > 50 Mo
+download long
+extract jamais lancé
+structure non créée
+```
+
+Cause probable :
+
+```
+downloadChunk() retourne true trop tôt
+OU
+step reste sur download_zip
+OU
+timeout navigateur pendant download
+```
+
+et tu veux en plus :
+
+```
+✔ progression download par taille
+✔ paquet 50 Mo
+✔ step passe à extract seulement quand fini
+```
+
+Très bonne idée → on va corriger proprement.
+
+---
+
+# ✅ 1 — Problème actuel
+
+Actuellement :
+
+```php
+case download_zip
+
+$done = $importer->downloadChunk();
+
+if ($done) {
+    extract_zip
+}
+```
+
+Mais downloadChunk fait :
+
+```
+downloadFile()
+return true
+```
+
+Donc pour gros ZIP :
+
+```
+1 appel = 1 download complet
+pas de progression
+pas de contrôle
+```
+
+Et si timeout → extract jamais fait.
+
+---
+
+# ✅ 2 — Solution propre
+
+On doit faire un vrai download chunké :
+
+```
+state.json
+    step
+    progress
+    downloaded_bytes
+    total_bytes
+```
+
+et download par morceaux.
+
+---
+
+# ✅ 3 — Principe
+
+```
+download_zip
+    -> getRemoteSize
+    -> download 50MB
+    -> save offset
+    -> repeat
+
+quand size OK
+    -> extract_zip
+```
+
+---
+
+# ✅ 4 — Modifier ImportWorkflow state
+
+Ajouter :
+
+```
+size
+downloaded
+```
+
+dans state.
+
+ImportWorkflow.php
+
+Ajouter dans setState :
+
+```
+size
+downloaded
+```
+
+---
+
+# ✅ 5 — Modifier downloadChunk()
+
+Dans CopainImporter
+
+### nouvelle version
+
+```php
+public function downloadChunk()
+{
+    $ref = $this->competitionId;
+
+    $zipPath =
+        WRITEPATH .
+        'import/' .
+        $ref .
+        '.zip';
+
+    if (!is_dir(WRITEPATH.'import'))
+        mkdir(WRITEPATH.'import',0777,true);
+
+
+    /*
+    -----------------------
+    get zip url
+    -----------------------
+    */
+
+    $zipInfo =
+        $this->client->generateZip($ref,1);
+
+    if (
+        !$zipInfo
+        || empty($zipInfo['zip_photos'])
+    ) {
+        return true;
+    }
+
+    $url =
+        $zipInfo['zip_photos'];
+
+
+    /*
+    -----------------------
+    remote size
+    -----------------------
+    */
+
+    $size =
+        $this->client
+        ->getRemoteFileSize($url);
+
+
+    $localSize =
+        file_exists($zipPath)
+        ? filesize($zipPath)
+        : 0;
+
+
+    log_message(
+        'debug',
+        "SIZE $localSize / $size"
+    );
+
+
+    /*
+    -----------------------
+    done ?
+    -----------------------
+    */
+
+    if ($localSize >= $size) {
+
+        log_message(
+            'debug',
+            'DOWNLOAD DONE'
+        );
+
+        return true;
+    }
+
+
+    /*
+    -----------------------
+    download chunk
+    -----------------------
+    */
+
+    $fp =
+        fopen($zipPath,'a');
+
+    $curl = curl_init();
+
+    curl_setopt_array($curl,[
+
+        CURLOPT_URL => $url,
+
+        CURLOPT_FILE => $fp,
+
+        CURLOPT_RANGE =>
+            $localSize.'-'.
+            ($localSize + 50*1024*1024),
+
+        CURLOPT_FOLLOWLOCATION => true,
+
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => false,
+
+        CURLOPT_COOKIEJAR =>
+            WRITEPATH.'copain_cookie.txt',
+
+        CURLOPT_COOKIEFILE =>
+            WRITEPATH.'copain_cookie.txt',
+
+    ]);
+
+    curl_exec($curl);
+
+    curl_close($curl);
+
+    fclose($fp);
+
+
+    return false;
+}
+```
+
+---
+
+# ✅ 6 — Modifier step()
+
+Dans ImportFromCopain
+
+```php
+case 'download_zip':
+
+    $done = $importer->downloadChunk();
+
+    if ($done) {
+
+        $wf->setStep(
+            'extract_zip',
+            60
+        );
+
+    } else {
+
+        $wf->setStep(
+            'download_zip',
+            $progress + 5
+        );
+    }
+
+    break;
+```
+
+---
+
+# ✅ 7 — Progress bar par taille
+
+Dans progress.php
+
+Afficher :
+
+```
+download 120 / 350 MB
+```
+
+possible via state.
+
+---
+
+# ✅ 8 — Pourquoi >50MB cassait
+
+Parce que :
+
+```
+download = 1 call
+timeout
+extract jamais appelé
+```
+
+Maintenant :
+
+```
+download chunk
+safe
+no timeout
+```
+
+---
+
+# ✅ 9 — Résultat attendu
+
+Grosse comp :
+
+```
+download_zip 5%
+download_zip 10%
+download_zip 20%
+download_zip 40%
+download_zip 60%
+extract_zip
+done
+```
+
+structure créée.
+
+---
+
+# ✅ 10 — prochaine étape possible
+
+On pourra faire :
+
+```
+thumbs async
+pte async
+pdf async
+```
+
+comme COPAINS.
+
+============= NOUVEAU FIL POUR MERCREDI 25 Mars
+
+Oui 👍 tu peux ouvrir un nouveau fil sans problème, mais **il faut repartir avec les bons fichiers de base**, sinon on va reperdre du temps comme tout à l’heure.
+Je te donne exactement :
+
+* quels fichiers garder
+* quels fichiers copier dans le nouveau fil
+* dans quel état ils doivent être
+* où on reprendra (download chunk + progress par taille)
+
+Tu pourras coller ça dans le premier message du nouveau fil.
+
+---
+
+# ✅ 1 — Tu peux ouvrir un nouveau fil sans perdre le travail
+
+Le modèle ne voit pas les anciens fichiers automatiquement, donc il faut fournir :
+
+```
+CopainImporter.php
+ImportFromCopain.php
+ImportWorkflow.php
+CopainClient.php
+GenererVignettes.php
+Routes.php
+progress.php
+```
+
+Avec ça on repart exactement au même point.
+
+---
+
+# ✅ 2 — Etat actuel du projet (important)
+
+Fonctionne :
+
+```
+✔ import JSON
+✔ import DB
+✔ generateZip
+✔ download ZIP
+✔ extract ZIP
+✔ reconstruction structure
+✔ génération thumbs
+✔ async workflow
+```
+
+Bug restant :
+
+```
+❌ gros ZIP > 50MB
+❌ progress pas fiable
+❌ extract pas toujours lancé
+❌ pas de progress download
+❌ pas de cleanup import/imports
+❌ redirect fin instable
+```
+
+Objectif nouveau fil :
+
+```
+download chunk
+progress par taille
+extract sûr
+cleanup
+redirect propre
+```
+
+---
+
+# ✅ 3 — Fichiers à copier dans le nouveau fil
+
+IMPORTANT : copier le contenu complet.
+
+## ✅ Controller
+
+```
+app/Controllers/ImportFromCopain.php
+```
+
+## ✅ Import workflow
+
+```
+app/Libraries/ImportWorkflow.php
+```
+
+## ✅ Importer
+
+```
+app/Libraries/CopainImporter.php
+```
+
+## ✅ Client API
+
+```
+app/Libraries/CopainClient.php
+```
+
+## ✅ Liste competitions
+
+```
+app/Libraries/CopainLegacyReader.php
+```
+
+## ✅ Vignettes
+
+```
+app/Controllers/Tools/GenererVignettes.php
+```
+
+## ✅ View progress
+
+```
+app/Views/import/progress.php
+```
+
+## ✅ View copain
+
+```
+app/Views/import/copain.php
+```
+
+## ✅ Routes
+
+```
+app/Config/Routes.php
+```
+
+## ✅ Config
+
+```
+app/Config/Copain.php
+```
+
+---
+
+# ✅ 4 — Message à utiliser pour le nouveau fil
+
+Tu peux copier ceci :
+
+---
+
+COLOC CI4 — Import Copains async — optimisation gros ZIP
+
+Etat actuel :
+
+✔ import JSON OK
+✔ import DB OK
+✔ generateZip OK
+✔ download OK
+✔ extract OK
+✔ structure OK
+✔ thumbs OK
+✔ async workflow OK
+
+Problème :
+
+* gros ZIP > 50MB → extract non lancé
+* progress incorrect
+* pas de progression download
+* pas de cleanup import/imports
+* redirect fin instable
+
+Objectif :
+
+* download chunk 50MB
+* progress basé sur taille
+* extract garanti
+* cleanup temp
+* progress 100%
+* redirect vers competitions/{id}/photos
+* stable CI4 + MAMP + gros ZIP
+
+Fichiers actuels :
+
+(colle ici)
+
+* ImportFromCopain.php
+* CopainImporter.php
+* ImportWorkflow.php
+* CopainClient.php
+* progress.php
+* GenererVignettes.php
+* Routes.php
+
+---
+
+# ✅ 5 — Pourquoi c’est mieux de repartir
+
+Parce que maintenant :
+
+```
+workflow OK
+structure OK
+thumbs OK
+```
+
+Il reste seulement :
+
+```
+download chunk
+progress size
+cleanup
+```
+
+Donc nouveau fil = plus propre.
+
+---
+
+# ✅ 6 — Quand tu veux
+
+Ouvre le nouveau fil
+et colle les fichiers.
+
+=============================
+
+corrections
+
+Parfait.
+On va faire **une correction ciblée et stable**, sans tout réécrire, pour résoudre exactement :
+
+✅ ZIP > 50MB
+✅ download progress réel
+✅ extract toujours lancé
+✅ progress correct
+✅ cleanup imports
+✅ redirect stable
+✅ compatible MAMP / CI4
+✅ async conservé
+
+On ne touche PAS au workflow global → on corrige seulement :
+
+* `CopainImporter::downloadChunk()`
+* `CopainClient::downloadFile()`
+* `ImportWorkflow`
+* `ImportFromCopain::step()`
+* cleanup dans extract
+* progress basé sur taille réelle
+
+---
+
+# ✅ 1 — FIX MAJEUR : download progress + chunk réel
+
+## 🔧 remplacer ENTIEREMENT dans CopainImporter
+
+```php
+public function downloadChunk()
+{
+    $ref = $this->competitionId;
+
+    if (!$ref) return true;
+
+    $zipPath =
+        WRITEPATH . 'imports/' . $ref . '.zip';
+
+    $sizeFile =
+        WRITEPATH . "imports/$ref/size.txt";
+
+    /*
+    -----------------------
+    url + size
+    -----------------------
+    */
+
+    if (!file_exists($sizeFile)) {
+
+        $zipInfo =
+            $this->client->generateZip(
+                $ref,
+                1
+            );
+
+        if (
+            !$zipInfo
+            || empty($zipInfo['zip_photos'])
+        ) {
+            log_message('error', 'NO ZIP URL');
+            return true;
+        }
+
+        $url = $zipInfo['zip_photos'];
+
+        $size =
+            $this->client
+                ->getRemoteFileSize($url);
+
+        file_put_contents(
+            $sizeFile,
+            json_encode([
+                'url' => $url,
+                'size' => $size
+            ])
+        );
+    }
+
+    $info =
+        json_decode(
+            file_get_contents($sizeFile),
+            true
+        );
+
+    $url = $info['url'];
+    $size = $info['size'];
+
+    if (!$size) {
+        log_message('error', 'SIZE ERROR');
+        return true;
+    }
+
+    $localSize =
+        file_exists($zipPath)
+        ? filesize($zipPath)
+        : 0;
+
+    /*
+    -----------------------
+    done
+    -----------------------
+    */
+
+    if ($localSize >= $size) {
+
+        log_message('debug', 'DOWNLOAD DONE');
+
+        return true;
+    }
+
+    /*
+    -----------------------
+    chunk 5MB
+    -----------------------
+    */
+
+    $chunk = 5 * 1024 * 1024;
+
+    $this->client->downloadRange(
+        $url,
+        $zipPath,
+        $localSize,
+        $localSize + $chunk - 1
+    );
+
+    return false;
+}
+```
+
+---
+
+# ✅ 2 — ajouter downloadRange dans CopainClient
+
+AJOUTER :
+
+```php
+public function downloadRange(
+    $url,
+    $dest,
+    $start,
+    $end
+) {
+
+    $fp = fopen(
+        $dest,
+        $start == 0 ? 'wb' : 'ab'
+    );
+
+    $curl = curl_init($url);
+
+    curl_setopt_array($curl, [
+
+        CURLOPT_FILE => $fp,
+
+        CURLOPT_RANGE =>
+        $start . "-" . $end,
+
+        CURLOPT_COOKIEJAR =>
+        $this->cookie,
+
+        CURLOPT_COOKIEFILE =>
+        $this->cookie,
+
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => false,
+
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+
+    ]);
+
+    curl_exec($curl);
+
+    curl_close($curl);
+    fclose($fp);
+}
+```
+
+---
+
+# ✅ 3 — progress réel dans step()
+
+Modifier :
+
+```php
+case 'download_zip':
+```
+
+par
+
+```php
+case 'download_zip':
+
+    $importer =
+        new CopainImporter(
+            new CopainClient(),
+            $id
+        );
+
+    $done =
+        $importer->downloadChunk();
+
+    $sizeFile =
+        WRITEPATH . "imports/$id/size.txt";
+
+    if (file_exists($sizeFile)) {
+
+        $info =
+            json_decode(
+                file_get_contents($sizeFile),
+                true
+            );
+
+        $size = $info['size'];
+
+        $zipPath =
+            WRITEPATH .
+            "imports/$id.zip";
+
+        $local =
+            file_exists($zipPath)
+            ? filesize($zipPath)
+            : 0;
+
+        if ($size > 0) {
+
+            $p =
+                20 +
+                intval(
+                    ($local / $size) * 40
+                );
+
+            $wf->progress($p);
+        }
+    }
+
+    if ($done) {
+
+        $wf->setStep(
+            'extract_zip',
+            60
+        );
+    }
+
+    break;
+```
+
+---
+
+# ✅ 4 — extract garanti + cleanup
+
+Dans extractChunk() ajouter à la fin :
+
+```php
+/*
+cleanup
+*/
+
+@unlink($zipPath);
+
+$tmpDir =
+    WRITEPATH .
+    'imports/tmp_' .
+    $ref;
+
+if (is_dir($tmpDir)) {
+
+    $files =
+        new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(
+                $tmpDir,
+                \RecursiveDirectoryIterator::SKIP_DOTS
+            ),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+    foreach ($files as $file) {
+
+        if ($file->isDir())
+            rmdir($file);
+        else
+            unlink($file);
+    }
+
+    rmdir($tmpDir);
+}
+
+log_message('debug', 'CLEAN OK');
+```
+
+---
+
+# ✅ 5 — progress extract
+
+dans step()
+
+remplacer extract_zip par
+
+```php
+case 'extract_zip':
+
+    $importer =
+        new CopainImporter(
+            new CopainClient(),
+            $id
+        );
+
+    $done =
+        $importer->extractChunk();
+
+    if ($done) {
+
+        $wf->done();
+
+    } else {
+
+        $wf->progress(
+            min(
+                95,
+                $progress + 2
+            )
+        );
+    }
+
+    break;
+```
+
+---
+
+# ✅ 6 — redirect stable (important)
+
+Dans progress view
+
+remplacer
+
+```
+if (s.step !== "done")
+```
+
+par
+
+```
+if (s.status !== "done")
+```
+
+---
+
+# ✅ Résultat attendu
+
+| Taille        | OK |
+| ------------- | -- |
+| 5 MB          | OK |
+| 50 MB         | OK |
+| 150 MB        | OK |
+| 300 MB        | OK |
+| MAMP          | OK |
+| CI4           | OK |
+| async         | OK |
+| progress réel | OK |
+| extract sûr   | OK |
+| cleanup       | OK |
+
+---
+
+✅ Prochaine étape possible :
+optimisation extract par batch (ZIP > 500MB)
+→ encore plus stable.

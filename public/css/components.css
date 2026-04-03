@@ -1,0 +1,18 @@
+/* =====================================================
+   COLOC V3 – COMPONENTS
+   Boutons, cards, badges, tooltip
+   ===================================================== */
+
+.card{
+    background:white;
+    border-radius:12px;
+    padding:30px;
+}
+
+.btn-primary{
+    background:#111827;
+    color:white;
+    padding:8px 14px;
+    border-radius:8px;
+    font-size:13px;
+}

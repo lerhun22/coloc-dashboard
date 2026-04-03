@@ -1,0 +1,460 @@
+Parfait 👍 on pose tout proprement, **sans code**, comme une spec technique claire et stable (celle qu’on aurait dû figer dès le début).
+
+---
+
+# 🧠 📌 1 — LES IDENTIFIANTS (fondamental)
+
+Il y a **4 notions distinctes** à ne jamais mélanger :
+
+| notion            | exemple          | rôle                                 |
+| ----------------- | ---------------- | ------------------------------------ |
+| **id**            | 714 / 723 / 4366 | identifiant API COPAIN               |
+| **numero**        | 11               | index de la compétition dans l’année |
+| **competXX**      | compet11         | dossier fichiers                     |
+| **saison (year)** | 2026             | année sportive                       |
+
+---
+
+## 🎯 RÈGLE CLÉ
+
+```text
+competXX = "compet" + numero
+```
+
+👉 donc :
+
+```text
+numero = 11 → compet11
+```
+
+✔ règle fiable
+✔ valable N / R / Coupe
+✔ issue du modèle COPAIN
+
+---
+
+# 🧭 📌 2 — NATIONAL vs RÉGIONAL
+
+| type     | condition        | URL classement               |
+| -------- | ---------------- | ---------------------------- |
+| National | `urs_id == null` | `/classement/photos/{id}`    |
+| Régional | `urs_id != null` | `/classement_ur/photos/{id}` |
+
+---
+
+## 🎯 RÈGLE ABSOLUE
+
+```text
+NE JAMAIS utiliser :
+❌ nombre de digits
+✔ utiliser urs_id
+```
+
+---
+
+# 🗂 📌 3 — STRUCTURE DES FICHIERS
+
+## National / Coupe
+
+```text
+/upload/competitions/national/{year}/competXX/
+```
+
+---
+
+## Régional
+
+```text
+/upload/competitions/regional/{year}/UR{urs_id}/competXX/
+```
+
+---
+
+## 🎯 Exemple
+
+```text
+/upload/competitions/national/2026/compet11/
+/upload/competitions/regional/2026/UR22/compet1/
+```
+
+---
+
+# 🔄 📌 4 — WORKFLOW GLOBAL (VALIDÉ)
+
+## Étape 1 — LOGIN
+
+```text
+autoLogin()
+→ cookie session
+```
+
+---
+
+## Étape 2 — LISTE COMPÉTITIONS
+
+```text
+get_concours.php
+→ competitions
+→ rcompetitions
+```
+
+---
+
+## Étape 3 — IDENTIFICATION
+
+```text
+trouver la compétition via :
+- id
+- saison
+- urs_id
+- nom
+```
+
+---
+
+## Étape 4 — PARAMÈTRES API
+
+```text
+type = 1 (national) / 2 (régional)
+ordre = numero
+```
+
+---
+
+## Étape 5 — IMPORT COPAIN
+
+```text
+importCompetition(id, type, ordre)
+```
+
+👉 COPAIN :
+
+```text
+✔ remplit les tables locales (COLOC)
+✔ prépare les images
+✔ structure déjà conforme
+```
+
+---
+
+## Étape 6 — CONSTRUCTION DU PATH (LOCAL)
+
+👉 à partir de `$c` :
+
+```text
+type   = national / regional
+year   = saison
+folder = compet + numero
+```
+
+👉 + régional :
+
+```text
+URxx = "UR" + urs_id
+```
+
+---
+
+## 🎯 Résultat final
+
+```text
+N :
+/upload/competitions/national/2026/compet11/
+
+R :
+/upload/competitions/regional/2026/UR22/compet1/
+```
+
+---
+
+# 🚨 📌 5 — CE QU’IL NE FAUT PLUS FAIRE
+
+❌ parser le HTML
+❌ utiliser regex sur les pages
+❌ dépendre du rendu navigateur
+❌ deviner competXX
+❌ utiliser json/concours.json
+❌ utiliser le nombre de digits de l’id
+
+---
+
+# ✅ 📌 6 — CE QU’IL FAUT FAIRE
+
+✔ utiliser `get_concours.php`
+✔ utiliser `numero` pour competXX
+✔ utiliser `urs_id` pour N / R
+✔ utiliser `saison` pour year
+✔ appeler `importCompetition`
+✔ utiliser la structure COPAIN telle quelle
+
+---
+
+# 🧠 📌 7 — MODÈLE MENTAL FINAL
+
+```text
+API COPAIN = vérité métier
+Filesystem = projection directe de cette vérité
+```
+
+---
+
+# 🎯 📌 8 — CHAÎNE SIMPLE (résumé ultime)
+
+```text
+id
+→ getCompetition
+→ (numero, saison, urs_id)
+→ importCompetition
+→ construire chemin :
+
+type   = (urs_id ? regional : national)
+year   = saison
+folder = compet + numero
+```
+
+---
+
+# 💬 CONCLUSION
+
+👉 Ton intuition initiale était la bonne :
+
+```text
+✔ tout est déjà dans COPAIN
+✔ il ne faut rien deviner
+✔ il faut juste mapper correctement
+```
+
+---------------
+
+Parfait 👍 — on fige enfin les choses proprement.
+Voici **le résumé clair et exploitable des règles métiers** de ton import COPAIN.
+
+---
+
+# 🎯 🧠 RÈGLES MÉTIERS — IMPORT COPAIN
+
+---
+
+# 1. 🆔 Identité d’une compétition
+
+👉 Une compétition est définie par :
+
+```text
+id (unique logique côté app)
++
+type (Copain : national / régional)
+```
+
+👉 MAIS :
+
+```text
+id seul ≠ fiable côté Copain
+```
+
+---
+
+# 2. 🧭 Source de vérité
+
+👉 **TOUJOURS utiliser :**
+
+```php
+CopainClient::getCompetitions()
+```
+
+👉 structure :
+
+```php
+[
+  'competitions'  => [...], // NATIONAL
+  'rcompetitions' => [...]  // REGIONAL
+]
+```
+
+---
+
+# 3. 🏷️ Type de compétition
+
+👉 règle métier validée :
+
+```text
+urs_id = null  → NATIONAL
+urs_id != null → REGIONAL
+```
+
+👉 mapping Copain :
+
+```text
+type = 1 → NATIONAL (N1 + N2)
+type = 0 → REGIONAL (UR)
+```
+
+---
+
+# 4. ⚠️ Règle critique (bug principal)
+
+👉 NE JAMAIS faire :
+
+```php
+generateZip($id, type calculé sans vérification)
+```
+
+👉 TOUJOURS :
+
+```php
+$meta = findCompetitionMeta($id);
+$type = (urs_id ? 0 : 1);
+```
+
+---
+
+# 5. 📦 Récupération des données
+
+👉 pipeline réel :
+
+```text
+Copain API
+   ↓
+generateZip
+   ↓
+download ZIP
+   ↓
+unzip + scan images
+   ↓
+normalisation
+```
+
+👉 PAS de parsing HTML ✔
+👉 PAS d’API images directe ✔
+
+---
+
+# 6. 🔄 Normalisation obligatoire
+
+👉 toutes les sources doivent produire :
+
+```php
+[
+  'id'     => int,
+  'nom'    => string,
+  'saison' => int,
+  'urs_id' => null|int,
+
+  'images' => [
+      [
+        'path' => string,
+        'filename' => string
+      ]
+  ]
+]
+```
+
+---
+
+# 7. 🧱 Règles de transformation
+
+👉 dans `CopainImportService` :
+
+```php
+'type'   => empty($urs_id)
+    ? 'national'
+    : 'regional';
+
+'year'   => saison;
+
+'folder' => 'compet' . id;
+```
+
+---
+
+# 8. 📁 Structure de stockage
+
+👉 règle :
+
+```text
+/type/year/folder
+```
+
+👉 exemple :
+
+```text
+/national/2026/compet723/
+```
+
+---
+
+# 9. 🧨 Priorité des données
+
+👉 ordre de confiance :
+
+```text
+1. getCompetitions()   ← SOURCE FIABLE
+2. ZIP Copain          ← contenu (images)
+3. fallback            ← reader
+```
+
+👉 donc :
+
+```php
+$data = reader(...)
+$data = override avec $meta
+```
+
+---
+
+# 10. 🔁 Workflow
+
+👉 découpage :
+
+```text
+ImportService  → orchestration
+Reader         → lecture données
+Workflow       → DB + fichiers
+```
+
+---
+
+# 11. 🚫 Interdictions
+
+❌ pas de logique DB dans service
+❌ pas de parsing HTML
+❌ pas de déduction hasardeuse du type
+❌ pas d’import direct sans normalisation
+
+---
+
+# 12. ✅ Règle clé globale
+
+👉 **TOUT doit converger vers un format unique**
+
+```text
+Quelle que soit la source (COPAIN ou ZIP)
+→ même structure
+→ même workflow
+```
+
+---
+
+# 🧠 Résumé en 1 phrase
+
+👉
+**“On identifie via la liste officielle Copain, on récupère via ZIP, on normalise, puis on traite via un workflow unique.”**
+
+---
+
+# 🚀 Tu es maintenant solide sur :
+
+✔ National maîtrisé
+✔ mapping Copain compris
+✔ bug type corrigé
+✔ architecture propre
+
+---
+
+💬 Si tu veux aller plus loin maintenant :
+
+👉 je peux te faire :
+
+* la gestion async propre (avec progression réelle)
+* ou sécuriser complètement le download ZIP (retry + cache)
+
+👉 dis-moi 👍

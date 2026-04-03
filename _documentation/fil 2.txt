@@ -1,0 +1,151 @@
+Parfait 👍
+Voici un **résumé clair et structuré** que tu pourras copier-coller pour démarrer un nouveau fil plus tard.
+
+---
+
+# 🧾 COLOC V3 – UR22
+
+## État actuel du projet
+
+### 🔧 Environnement
+
+* Framework : CodeIgniter 4.7.0
+* Environnement : MAMP (DEV)
+* AutoRoute : désactivé
+* Routes déclarées explicitement
+* Architecture modulaire :
+
+  * Preparation
+  * Jugement
+  * Resultats
+* CSS structuré et nettoyé (app.css maintenable)
+
+---
+
+# 🧱 Structure actuelle
+
+```
+app/
+ ├── Controllers/
+ │     ├── Dashboard.php
+ │     ├── Preparation/Preparation.php
+ │     ├── Jugement/Jugement.php
+ │     └── Resultats/Resultats.php
+ │
+ ├── Models/
+ │     ├── CompetitionModel.php
+ │     ├── PhotoModel.php
+ │     └── JudgeModel.php
+ │
+ ├── Views/
+ │     ├── layout/default.php
+ │     ├── dashboard/
+ │     ├── preparation/
+ │     ├── jugement/
+ │     └── resultats/
+```
+
+---
+
+# 📊 Base de données
+
+## Table `competitions`
+
+* id
+* nom
+* date_competition (DATE NOT NULL)
+* saison
+* date_creation
+
+## Table `photos`
+
+* id
+* competitions_id
+* titre
+* note_totale
+* place
+* etc.
+
+`nb_oeuvres` est calculé via :
+
+```sql
+COUNT(photos.id)
+GROUP BY competitions.id
+```
+
+Jointure LEFT JOIN dans le controller.
+
+---
+
+# 📋 Page Préparation – Fonctionnelle
+
+Affiche :
+
+* Liste complète des compétitions
+* Nombre d'œuvres (via jointure)
+* Statut simplifié :
+
+  * Active (date >= today)
+  * Historique (date < today)
+
+UI :
+
+* Tableau propre
+* Badge structuré (.badge-active / .badge-closed)
+* CSS nettoyé
+* Header stable
+* Page Accueil restaurée
+
+---
+
+# 🎨 CSS
+
+* Structure claire par sections
+* Suppression des doublons
+* Un seul système pour les compétitions (table)
+* Responsive regroupé
+* Page Accueil restaurée
+* Badges cohérents
+
+---
+
+# 🎯 Logique métier actuelle
+
+* Pas de `date_completion`
+* Le statut dépend uniquement de `date_competition`
+* Une compétition devient "Historique" automatiquement si date passée
+* Pas encore de verrouillage métier manuel
+
+---
+
+# 🚀 Prochaines pistes possibles
+
+* Actions dynamiques par compétition (modales)
+* Verrouillage suppression si photos existantes
+* Amélioration UX des actions
+* Structuration phase Jugement
+* Mise en production sécurisée
+* Gestion fine des rôles (commissaire club / régional)
+
+---
+
+# 🧠 Philosophie actuelle
+
+* Simplicité avant sophistication
+* Architecture claire
+* Pas de surcomplexité inutile
+* UX moderne mais sobre
+* Outil interne, pragmatique
+
+---
+
+Tu peux démarrer un nouveau fil avec simplement :
+
+> Contexte COLOC V3 UR22 – état actuel :
+> (et coller ce résumé)
+
+Et on repartira proprement 👌
+
+---
+
+Quand tu voudras reprendre, on pourra passer au niveau supérieur 😄

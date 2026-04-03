@@ -1,0 +1,172 @@
+
+ETAT au 2732026
+1 config
+- Cpain.php
+
+2 controllers:
+- Import.php
+- ImportFromCopain.php
+
+1 Service
+- CopainImportService.php
+
+4 librairies
+- CopainClient.php
+- CopainImporter.php
+- CopainLegacyReader.php
+- ImportWorkflow.php
+
+5 vues
+- card.php
+- copain.php
+- copainManuel.php
+- index.php
+
+PLAN action
+Tu as raison. On arrête les boucles et on **fige une décision simple + un plan court**. Pas d’hypothèses, pas de détour.
+
+---
+
+# 🎯 DÉCISION UNIQUE (à ne plus remettre en cause)
+
+```text
+✔ competXX = numero
+✔ type = (urs_id ? regional : national)
+✔ year = saison
+✔ aucun parsing HTML
+✔ 1 seul pipeline (ImportWorkflow)
+✔ 2 entrées → normalisation → workflow
+```
+
+---
+
+# 🧱 ARCHI MINIMALE (ce qu’on garde / enlève)
+
+**On garde :**
+
+* `CopainClient.php` (API)
+* `CopainLegacyReaderService.php` (ZIP local)
+* `ImportWorkflow.php` (state machine)
+* `CopainImportService.php` (orchestrateur)
+* `ImportFromCopain.php` (controller)
+
+**On enlève (ou ignore) :**
+
+* `CopainImporter.php` ❌
+* parsing HTML ❌
+* toute logique dupliquée ❌
+
+---
+
+# 🔁 PIPELINE UNIQUE (figé)
+
+```text
+Controller
+  → CopainImportService(mode)
+
+Service
+  → (copain) CopainClient → data
+  → (zip)    LegacyReader → data
+
+  → NORMALISATION (commune)
+  → ImportWorkflow (inchangé)
+```
+
+---
+
+# 🔥 NORMALISATION (SEULE LOGIQUE MÉTIER)
+
+```php
+$type   = $c['urs_id'] ? 'regional' : 'national';
+$year   = $c['saison'];
+$numero = $c['numero'];
+$folder = 'compet' . $numero;
+
+$ur = $c['urs_id'] ? 'UR' . $c['urs_id'] : null;
+```
+
+👉 C’est **la seule vérité**.
+
+---
+
+# 📂 PATH FINAL (unique)
+
+```text
+National :
+/upload/competitions/national/{year}/compet{numero}/
+
+Régional :
+/upload/competitions/regional/{year}/UR{urs_id}/compet{numero}/
+```
+
+---
+
+# 🚀 PLAN D’ACTION (4 étapes, pas plus)
+
+## 1. Nettoyage (30 min)
+
+* Supprimer/ignorer `CopainImporter.php`
+* Ne plus utiliser de regex / HTML
+
+---
+
+## 2. Service unique (1h)
+
+Dans `CopainImportService` :
+
+```text
+if mode = copain
+    → getCompetition + importCompetition
+
+if mode = zip
+    → LegacyReader
+
+→ produire même structure (type, year, numero, folder, ur)
+→ passer au workflow
+```
+
+---
+
+## 3. Ne toucher à rien d’autre
+
+* `ImportWorkflow` = intouchable ✅
+* UI = intouchable ✅
+
+---
+
+## 4. Test unique
+
+Tester seulement :
+
+```text
+ID national (ex: 714)
+ID régional
+ZIP local
+```
+
+---
+
+# 🧠 RÈGLE D’OR (à garder)
+
+```text
+SI tu écris une regex → tu es hors du modèle
+SI tu regardes du HTML → tu es hors du modèle
+SI tu dupliques du code → tu es hors du modèle
+```
+
+---
+
+# 💬 CONCLUSION
+
+👉 Tu n’as pas un problème technique
+👉 tu avais un problème de dispersion
+
+Maintenant :
+
+```text
+✔ une règle
+✔ un pipeline
+✔ une source de vérité
+```
+
+FIL 273

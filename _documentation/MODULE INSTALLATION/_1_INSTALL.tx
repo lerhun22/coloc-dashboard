@@ -1,0 +1,322 @@
+Parfait 👍 voici la **checklist officielle COLOC V3 — installation sur un autre Mac**
+(celle que tu pourras réutiliser pour UR22 / clubs / jugements / tests).
+
+C’est une procédure propre pour CodeIgniter 4 + MAMP + MySQL + COPAIN.
+
+---
+
+# ✅ CHECKLIST COLOC V3 — INSTALLATION SUR UN AUTRE MAC
+
+---
+
+## ✅ 1 — Copier le projet
+
+Copier le dossier :
+
+```
+coloc_v3/
+```
+
+dans
+
+```
+/Applications/MAMP/htdocs/
+```
+
+Résultat :
+
+```
+/Applications/MAMP/htdocs/coloc_v3
+```
+
+---
+
+## ✅ 2 — Nettoyer les fichiers locaux
+
+Dans le projet, supprimer :
+
+```
+writable/cache/*
+writable/session/*
+writable/logs/*
+```
+
+et
+
+```
+public/uploads/competitions/*
+```
+
+ou
+
+```
+uploads/competitions/*
+```
+
+(selon ton projet)
+
+Puis recréer le dossier vide :
+
+```
+uploads/competitions/
+```
+
+Important.
+
+---
+
+## ✅ 3 — Vérifier les permissions (Mac obligatoire)
+
+Dans Terminal :
+
+```bash
+cd /Applications/MAMP/htdocs/coloc_v3
+
+chmod -R 777 writable
+chmod -R 777 public/uploads
+```
+
+ou
+
+```bash
+chmod -R 777 writable
+chmod -R 777 uploads
+```
+
+sinon CI4 bloque.
+
+---
+
+## ✅ 4 — Copier ou créer le .env
+
+Créer :
+
+```
+coloc_v3/.env
+```
+
+Exemple :
+
+```
+CI_ENVIRONMENT = development
+
+app.baseURL = 'http://localhost:8888/coloc_v3/'
+
+database.default.hostname = localhost
+database.default.database = coloc_v3
+database.default.username = root
+database.default.password = root
+database.default.DBDriver = MySQLi
+
+copain.email = ton@email
+copain.password = tonpass
+```
+
+Important :
+
+```
+app.baseURL
+database
+copain.email
+copain.password
+```
+
+---
+
+## ✅ 5 — Créer la base MySQL
+
+Dans phpMyAdmin :
+
+```
+http://localhost:8888/phpMyAdmin
+```
+
+Créer :
+
+```
+coloc_v3
+```
+
+Puis importer ton SQL.
+
+Si tu as export :
+
+```
+mysqldump coloc_v3 > coloc.sql
+```
+
+Sur l'autre Mac :
+
+```
+mysql coloc_v3 < coloc.sql
+```
+
+---
+
+## ✅ 6 — Vérifier Database.php
+
+Fichier :
+
+```
+app/Config/Database.php
+```
+
+Doit contenir :
+
+```php
+'DBDriver' => 'MySQLi',
+'hostname' => 'localhost',
+'username' => 'root',
+'password' => 'root',
+'database' => 'coloc_v3',
+'DBDebug'  => true,
+```
+
+---
+
+## ✅ 7 — Vérifier Routes.php
+
+Tu dois avoir :
+
+```
+competitions
+competitions/import
+import/copain/run
+photos
+jugement
+```
+
+Sinon erreur 404.
+
+---
+
+## ✅ 8 — Vérifier MAMP URL
+
+Dans navigateur :
+
+```
+http://localhost:8888/coloc_v3
+```
+
+Si erreur → vérifier :
+
+```
+app.baseURL
+```
+
+---
+
+## ✅ 9 — Vérifier uploads
+
+Tu dois avoir :
+
+```
+uploads/
+uploads/competitions/
+```
+
+ou
+
+```
+public/uploads/
+public/uploads/competitions/
+```
+
+sinon import COPAIN casse.
+
+---
+
+## ✅ 10 — Vérifier COPAIN login
+
+Tester :
+
+```
+Import COPAIN
+```
+
+Si erreur → vérifier :
+
+```
+copain.email
+copain.password
+```
+
+dans `.env`.
+
+---
+
+## ✅ 11 — Vérifier writable
+
+Si erreur CI4 :
+
+```
+permission denied
+session error
+cache error
+```
+
+faire :
+
+```bash
+chmod -R 777 writable
+```
+
+---
+
+## ✅ 12 — Vérifier version PHP
+
+MAMP doit être ≥
+
+```
+PHP 8.1
+```
+
+sinon CI4 peut bug.
+
+---
+
+## ✅ 13 — Option recommandée (meilleur workflow)
+
+Utiliser git au lieu de copier.
+
+Dans .gitignore :
+
+```
+.env
+/writable/*
+/uploads/*
+```
+
+Puis :
+
+```
+git clone
+```
+
+et recréer .env.
+
+---
+
+# ✅ CHECKLIST RAPIDE
+
+✔ copier projet
+✔ vider writable
+✔ vider uploads
+✔ créer .env
+✔ créer DB
+✔ chmod writable
+✔ vérifier baseURL
+✔ vérifier COPAIN
+✔ tester import
+
+---
+
+# ✅ Si tu veux
+
+Je peux aussi faire :
+
+```
+CHECKLIST INSTALL CLUB PHOTO
+```
+
+pour distribuer COLOC aux clubs.

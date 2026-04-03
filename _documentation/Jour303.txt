@@ -1,0 +1,811 @@
+Parfait 👍 on va faire un **résumé clair, actionnable et exploitable pour repartir demain sans repartir dans les mêmes pièges**.
+
+---
+
+# 🎯 📌 SITUATION DU JOUR
+
+## 🧱 2 versions du projet
+
+### ✅ 1 — `coloc_v3-ENCOURS-253` (STABLE RÉGIONAL)
+
+✔ import JSON OK
+✔ import DB OK
+✔ download ZIP OK
+✔ extract OK
+✔ structure dossiers OK
+✔ thumbs OK
+✔ async OK
+
+❌ **National KO (ou non géré correctement)**
+
+---
+
+### ⚠️ 2 — `coloc en cours 293` (STABLE NATIONAL JSON)
+
+✔ import JSON OK (National + Régional)
+✔ distinction type OK
+✔ workflow OK
+
+❌ **ZIP KO (surtout National)**
+❌ extract jamais lancé (ou trop rapide)
+❌ structure dossiers non créée
+
+---
+
+# 💥 PROBLÈMES IDENTIFIÉS (CLÉS)
+
+---
+
+## ❌ 1 — Mélange de 2 logiques incompatibles
+
+👉 Tu as mixé :
+
+```
+✔ ancienne logique (chunk + workflow stable)
+❌ nouvelle logique (download direct / test rapide)
+```
+
+Résultat :
+
+```
+→ ZIP PAS PRET
+→ boucle infinie
+→ download faux positif
+```
+
+---
+
+## ❌ 2 — Mauvais endpoint ZIP (CRITIQUE)
+
+### Régional OK :
+
+```
+/webroot/json/zip_photos_XXXX.zip
+```
+
+### National ❌ :
+
+```
+/webroot/outils/telechargements/XXXX   ← lent / génération serveur
+```
+
+👉 Donc :
+
+```
+ZIP pas prêt immédiatement
+→ SIZE ok mais contenu vide ou incomplet
+→ faux "ZIP OK"
+```
+
+---
+
+## ❌ 3 — Mauvaise détection "ZIP prêt"
+
+Aujourd’hui :
+
+```php
+if ($size > 0) → OK
+```
+
+👉 FAUX ❌
+
+Il faut :
+
+```
+✔ vérifier taille MIN
+✔ vérifier évolution taille
+✔ ou attendre stabilisation
+```
+
+---
+
+## ❌ 4 — downloadChunk cassé
+
+Deux comportements mélangés :
+
+```
+✔ version stable : chunk + offset
+❌ version test : téléchargement complet direct
+```
+
+Résultat :
+
+```
+→ pas de progression réelle
+→ timeout possible
+→ extract déclenché trop tôt
+```
+
+---
+
+## ❌ 5 — workflow cassé côté step()
+
+👉 Cas observés :
+
+```
+download_zip → retourne true trop tôt
+→ passage direct extract_zip
+→ ZIP incomplet
+```
+
+ou
+
+```
+download_zip → boucle infinie
+→ ZIP jamais validé
+```
+
+---
+
+## ❌ 6 — perte de session / cookie
+
+👉 Symptôme :
+
+```
+generateZip OK
+download KO
+```
+
+Cause :
+
+```
+CopainClient recréé sans session
+```
+
+---
+
+## ❌ 7 — erreurs secondaires
+
+### 🔸 cleanup manquant
+
+```
+Call to undefined method cleanup()
+```
+
+---
+
+### 🔸 variable perdue
+
+```
+Undefined property competitionId
+```
+
+---
+
+### 🔸 vue cassée
+
+```
+$copains vs $competitions
+```
+
+---
+
+### 🔸 UI cassée
+
+```
+filtres disparus
+cards non alignées
+```
+
+---
+
+# 🧠 DIAGNOSTIC GLOBAL
+
+👉 Le vrai problème n’est PAS le code…
+
+👉 C’est :
+
+```
+2 architectures différentes mélangées
+```
+
+---
+
+# 🧱 ARCHITECTURE GAGNANTE (à garder)
+
+👉 Celle du régional :
+
+```
+downloadChunk()
+extractZipOnly()
+moveChunk()
+thumbChunk()
+workflow step par step
+```
+
+---
+
+# 🚀 STRATÉGIE POUR DEMAIN (CLAIRE)
+
+---
+
+## ✅ ÉTAPE 1 — repartir de la base STABLE
+
+👉 utiliser :
+
+```
+coloc_v3-ENCOURS-253
+```
+
+❌ ne PAS repartir de 293
+
+---
+
+## ✅ ÉTAPE 2 — ajouter National SANS casser
+
+UNIQUEMENT :
+
+```php
+$type = $this->request->getGet('type');
+```
+
+et :
+
+```php
+importCompetition($id, $type, ...)
+```
+
+---
+
+## ❌ NE PAS TOUCHER
+
+```
+downloadChunk()
+extractChunk()
+moveChunk()
+workflow step()
+```
+
+---
+
+## ✅ ÉTAPE 3 — corriger ZIP National
+
+👉 ajouter logique :
+
+```
+si type = N
+→ attendre génération ZIP
+→ retry intelligent
+→ vérifier taille stable
+```
+
+---
+
+## ✅ ÉTAPE 4 — sécuriser download
+
+```
+✔ chunk only
+✔ pas de download direct
+✔ même session cookie
+```
+
+---
+
+## ✅ ÉTAPE 5 — UI (facultatif demain)
+
+```
+✔ filtres UR / type
+✔ cards responsive
+✔ progress inline
+```
+
+---
+
+# 🎯 OBJECTIF DEMAIN
+
+```
+✔ 1 seule architecture
+✔ 1 seul workflow
+✔ National + Régional
+✔ ZIP fiable
+✔ pas de boucle
+✔ pas de faux OK
+```
+
+---
+
+# 💬 MESSAGE POUR NOUVEAU FIL
+
+Tu peux démarrer avec :
+
+```
+COLOC CI4 — Import Copains unifié
+
+Base stable :
+coloc_v3-ENCOURS-253 (régional OK)
+
+Objectif :
+ajouter National sans casser le workflow existant
+
+Problème actuel :
+ZIP national long à générer
+→ faux positif ZIP OK
+→ extract trop tôt
+
+Attendu :
+- détection ZIP prêt fiable
+- conservation downloadChunk existant
+- pas de refacto global
+```
+
+---
+
+# 🔥 RÉSUMÉ EN UNE PHRASE
+
+👉 Aujourd’hui tu n’as pas un bug…
+👉 tu as **deux systèmes qui se battent entre eux**.
+
+---
+
+Si tu veux demain, on fait une **version clean en 30 min** en partant de 253 👍
+
+Rappel des rêgles métier
+
+
+Parfait 👍 on va figer les **règles métier** proprement.
+C’est EXACTEMENT ce qu’il te faut pour repartir demain sans dériver.
+
+---
+
+# 🎯 🧱 RÈGLES MÉTIER — IMPORT COPAINS (VERSION RÉFÉRENCE)
+
+---
+
+# 1️⃣ 🔐 AUTHENTIFICATION (OBLIGATOIRE)
+
+### ✅ Règle
+
+```text
+TOUJOURS initialiser la session Copain AVANT tout appel
+```
+
+### ✔ Implémentation
+
+```php
+$legacy = new CopainLegacyReader();
+$login = $legacy->getCompetitions($email, $password);
+```
+
+👉 C’est cette méthode qui :
+
+```
+✔ crée la session serveur
+✔ écrit le cookie
+✔ permet ensuite generateZip / download
+```
+
+---
+
+### ❌ Interdit
+
+```php
+CopainClient->login() ❌
+```
+
+---
+
+# 2️⃣ 🧭 TYPOLOGIE DES COMPÉTITIONS
+
+---
+
+## ✅ Règle
+
+```text
+National vs Régional = déterminé par UR
+```
+
+### ✔ Logique
+
+```php
+$isNational = empty($urs_id);
+```
+
+---
+
+## 🎯 Mapping
+
+| Type     | Condition        | Code |
+| -------- | ---------------- | ---- |
+| National | `urs_id == null` | N    |
+| Régional | `urs_id != null` | R    |
+
+---
+
+## ⚠️ Règle critique
+
+```text
+Le type DOIT être passé explicitement à importCompetition
+```
+
+```php
+importCompetition($id, "N", ...)
+importCompetition($id, "R", ...)
+```
+
+---
+
+# 3️⃣ 🔄 WORKFLOW OBLIGATOIRE
+
+---
+
+## ✅ Pipeline officiel
+
+```text
+1. download_json
+2. download_zip
+3. extract_zip
+4. move_files
+5. thumbs
+6. done
+```
+
+---
+
+## ❌ Interdit
+
+```text
+❌ sauter une étape
+❌ fusionner étapes
+❌ download + extract en même temps
+```
+
+---
+
+# 4️⃣ 📦 GESTION DU ZIP
+
+---
+
+## 🧠 Règle fondamentale
+
+```text
+Le ZIP n’est PAS immédiatement disponible (surtout en National)
+```
+
+---
+
+## 📍 URLs
+
+### Régional (rapide)
+
+```text
+/webroot/json/zip_photos_{id}.zip
+```
+
+### National (lent ⚠️)
+
+```text
+/webroot/outils/telechargements/{id}
+```
+
+---
+
+## ⚠️ Règle critique
+
+```text
+Un ZIP peut exister MAIS être incomplet
+```
+
+---
+
+## ✅ Validation correcte
+
+Un ZIP est prêt si :
+
+```text
+✔ taille > 0
+✔ taille stable entre 2 checks
+OU
+✔ téléchargement réussi
+```
+
+---
+
+## ❌ Interdit
+
+```php
+if ($size > 0) → OK ❌
+```
+
+---
+
+# 5️⃣ ⬇️ DOWNLOAD
+
+---
+
+## ✅ Règle
+
+```text
+TOUJOURS télécharger en CHUNK
+```
+
+---
+
+## ✔ Pourquoi
+
+```
+✔ éviter timeout
+✔ gérer gros ZIP (1GB+)
+✔ suivre progression
+```
+
+---
+
+## 📏 Chunk standard
+
+```text
+5 Mo à 50 Mo max
+```
+
+---
+
+## ❌ Interdit
+
+```text
+❌ download complet en 1 fois
+❌ file_get_contents(zip)
+```
+
+---
+
+# 6️⃣ 🔁 WORKFLOW ASYNC (OBLIGATOIRE)
+
+---
+
+## ✅ Règle
+
+```text
+1 appel HTTP = 1 petite action
+```
+
+---
+
+## ✔ Exemple
+
+```text
+step() → downloadChunk()
+step() → downloadChunk()
+step() → extractZipOnly()
+```
+
+---
+
+## ❌ Interdit
+
+```text
+❌ tout faire en 1 requête
+❌ boucle PHP longue
+```
+
+---
+
+# 7️⃣ 📂 STRUCTURE DES DOSSIERS
+
+---
+
+## ✅ Règle
+
+```text
+Structure créée APRÈS extract
+```
+
+---
+
+## 📁 Format
+
+```text
+public/uploads/competitions/
+
+    {saison}_{urs}_{numero}_{id}/
+
+        photos/
+        thumbs/
+        pte/
+        pdf/
+```
+
+---
+
+## ⚠️ Particularité
+
+```text
+National → urs_id = null → doit devenir 0
+```
+
+---
+
+## ✔ Exemple
+
+```text
+2026_0_11_714
+2026_22_5_4450
+```
+
+---
+
+# 8️⃣ 🖼️ IMAGES
+
+---
+
+## ✅ Règle
+
+```text
+Les JPG sont dans le ZIP → jamais téléchargés individuellement
+```
+
+---
+
+## ✔ Process
+
+```text
+extract → tmp
+move → photos/
+generate thumbs
+```
+
+---
+
+# 9️⃣ 🧹 CLEANUP
+
+---
+
+## ✅ Règle
+
+```text
+TOUJOURS nettoyer après import
+```
+
+---
+
+## ✔ À supprimer
+
+```text
+writable/import/
+writable/imports/
+writable/imports/tmp_xxx/
+ZIP temporaire
+```
+
+---
+
+# 🔟 📊 PROGRESSION
+
+---
+
+## ✅ Règle
+
+```text
+progress ∈ [0 → 100]
+```
+
+---
+
+## ✔ Répartition
+
+| Step         | %      |
+| ------------ | ------ |
+| JSON         | 0–10   |
+| ZIP download | 10–50  |
+| extract      | 50–60  |
+| move         | 60–80  |
+| thumbs       | 80–100 |
+
+---
+
+# 11️⃣ 🚨 GESTION DES ERREURS
+
+---
+
+## ✅ Règle
+
+```text
+NE JAMAIS bloquer le workflow
+```
+
+---
+
+## ✔ Cas à gérer
+
+```
+ZIP non prêt
+download échoue
+extract échoue
+```
+
+---
+
+## ✔ Réaction
+
+```text
+→ retry
+→ log
+→ rester dans le même step
+```
+
+---
+
+# 12️⃣ 🔐 SESSION / COOKIE
+
+---
+
+## ✅ Règle
+
+```text
+TOUS les appels doivent utiliser le même cookie
+```
+
+---
+
+## ✔ Obligatoire dans cURL
+
+```php
+CURLOPT_COOKIEJAR
+CURLOPT_COOKIEFILE
+```
+
+---
+
+## ❌ Interdit
+
+```text
+nouveau client sans cookie
+```
+
+---
+
+# 13️⃣ 🎯 RÈGLE D’OR
+
+---
+
+```text
+NE JAMAIS MODIFIER LE WORKFLOW QUI MARCHE
+```
+
+👉 Tu ajoutes des règles
+👉 tu n’en remplaces aucune
+
+---
+
+# 🧠 RÉSUMÉ ULTRA SIMPLE
+
+```text
+LOGIN (Legacy)
+    ↓
+IMPORT JSON (type N/R)
+    ↓
+ATTENDRE ZIP (important)
+    ↓
+DOWNLOAD CHUNK
+    ↓
+EXTRACT
+    ↓
+MOVE
+    ↓
+THUMBS
+    ↓
+CLEAN
+    ↓
+DONE
+```
+
+---
+
+# 🚀 CE QUI A POSÉ PROBLÈME AUJOURD’HUI
+
+👉 Tu as violé 3 règles clés :
+
+```text
+❌ workflow modifié
+❌ ZIP considéré prêt trop tôt
+❌ mélange download direct + chunk
+```
+
+---
+
+# 💬 DEMAIN
+
+Si tu veux, on peut :
+
+👉 sécuriser **uniquement le ZIP national**
+👉 sans toucher au reste
+
+👉 et là tu auras un système béton 👍
