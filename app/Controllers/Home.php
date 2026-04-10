@@ -3,6 +3,8 @@
 namespace App\Controllers;
 
 use App\Libraries\CopainLegacyReader;
+use App\Services\ClassementService;
+use App\Models\PhotoModel;
 
 class Home extends BaseController
 {
@@ -20,186 +22,237 @@ class Home extends BaseController
 
     public function index()
     {
-        return "Home Coloc CI4 OK";
+        $cid = 734; // ou dynamique
+        //dd($cid);
+        $service = new ClassementService();
+        $service->compute($cid, true);
+
+        return redirect()->back()->with('success', 'Classements recalculés');
     }
 
-public function importnational($id)
-{
-    $client = new \App\Libraries\CopainClient();
+    public function syntheseUR22()
+    {
+        $photoModel = new PhotoModel();
 
-    /*
+        $ur = '22';
+
+        $results = $photoModel->getSyntheseClubsUR($ur);
+
+        dd($results);
+
+        return view('home/synthese_ur22', [
+            'results' => $results
+        ]);
+    }
+
+    public function clubsUR22Nationaux()
+    {
+        $photoModel = new PhotoModel();
+
+        $clubs = $photoModel->getClubsURParticipantNationaux('22');
+
+        return view('home/clubs_ur22', [
+            'clubs' => $clubs
+        ]);
+    }
+
+
+    public function compute($cid)
+    {
+        service('classement')->compute((int)$cid, true);
+
+        return $this->response->setJSON([
+            'status' => 'ok',
+            'cid' => $cid
+        ]);
+    }
+
+
+
+
+    public function importnational($id)
+    {
+        $client = new \App\Libraries\CopainClient();
+
+        /*
     =====================
     LOGIN
     =====================
     */
 
-    $client->autoLogin();
+        $client->autoLogin();
 
-    /*
+        /*
     =====================
     IMPORT JSON
     =====================
     */
 
-    $importer = new \App\Libraries\CopainImporter($client, $id);
+        $importer = new \App\Libraries\CopainImporter($client, $id);
 
-    $result = $importer->importCompetition($id, 'N', 1); // ⚠️ type N
+        $result = $importer->importCompetition($id, 'N', 1); // ⚠️ type N
 
-    if (($result['code'] ?? 1) != 0) {
-        dd("IMPORT JSON FAIL", $result);
-    }
+        if (($result['code'] ?? 1) != 0) {
+            dd("IMPORT JSON FAIL", $result);
+        }
 
-    /*
+        /*
     =====================
     LOAD DB
     =====================
     */
 
-    $model = new \App\Models\CompetitionModel();
+        $model = new \App\Models\CompetitionModel();
 
-    $competition = $model->find($id);
+        $competition = $model->find($id);
 
-    if (!$competition) {
-        dd("COMPETITION NOT FOUND", $id);
-    }
+        if (!$competition) {
+            dd("COMPETITION NOT FOUND", $id);
+        }
 
-    /*
+        /*
     =====================
     ZIP NATIONAL
     =====================
     */
 
-    $zip = new \App\Services\NationalZipService();
+        $zip = new \App\Services\NationalZipService();
 
-    $zip->process($competition);
+        $zip->process($competition);
 
-    dd('N OK');
-}
+        dd('N OK');
+    }
 
+    public function importregional($id)
+    {
+        $client = new \App\Libraries\CopainClient();
 
-
-
-public function importregional($id)
-{
-    $client = new \App\Libraries\CopainClient();
-
-    /*
+        /*
     =====================
     LOGIN
     =====================
     */
 
-    $client->autoLogin();
+        $client->autoLogin();
 
-    /*
+        /*
     =====================
     IMPORT JSON → DB
     =====================
     */
 
-    $importer = new \App\Libraries\CopainImporter($client, $id);
+        $importer = new \App\Libraries\CopainImporter($client, $id);
 
-    $result = $importer->importCompetition($id, 1, 1);
-    //log_message('debug :', '$result = '.$result);
+        $result = $importer->importCompetition($id, 1, 1);
+        //log_message('debug :', '$result = '.$result);
 
-    if (($result['code'] ?? 1) != 0) {
-        dd("IMPORT JSON FAIL", $result);
-    }
+        if (($result['code'] ?? 1) != 0) {
+            throw new \Exception("IMPORT JSON FAIL");
+        }
 
-    /*
+        /*
     =====================
     LOAD DB
     =====================
     */
 
-    $model = new \App\Models\CompetitionModel();
+        $model = new \App\Models\CompetitionModel();
 
-    $competition = $model->find($id);
-    
-    log_message('debug', 'COMPETITIONS COUNT=' . print_r($competition));
+        $competition = $model->find($id);
 
-    if (!$competition) {
-        dd("COMPETITION STILL NOT FOUND", $id);
-    }
+        log_message('debug', 'COMPETITIONS COUNT=' . print_r($competition));
 
-    /*
+        if (!$competition) {
+            dd("COMPETITION STILL NOT FOUND", $id);
+        }
+
+        /*
     =====================
     ZIP
     =====================
     */
 
-    $zip = new \App\Services\RegionalZipService();
-    //dd($zip);
+        $zip = new \App\Services\RegionalZipService();
+        //dd($zip);
 
-    $zip->process($competition);
+        $zip->process($competition);
 
-    dd('R OK');
-}
+        service('classement')->compute($id, true);
 
-public function importNationalFromCopain()
-{
-    $config = config('Copain');
+        return ['code' => 0];
+    }
 
-    $email    = $config->email;
-    $password = $config->password;
 
-    $legacy = new \App\Libraries\CopainLegacyReader();
 
-    /*
+
+
+
+    public function importNationalFromCopain()
+    {
+        $config = config('Copain');
+
+        $email    = $config->email;
+        $password = $config->password;
+
+        $legacy = new \App\Libraries\CopainLegacyReader();
+
+        /*
     =====================
     LOGIN + RÉCUP DATA
     =====================
     */
 
-    $data = $legacy->getCompetitions($email, $password);
+        $data = $legacy->getCompetitions($email, $password);
 
-    if (!$data || $data['code'] != 0) {
-        dd("LOGIN FAIL", $data);
-    }
+        if (!$data || $data['code'] != 0) {
+            throw new \Exception("IMPORT JSON FAIL");
+        }
 
-    /*
+        /*
     =====================
     FILTRER NATIONALES
     =====================
     */
 
-    $competitions = $data['competitions'] ?? [];
+        $competitions = $data['competitions'] ?? [];
 
-    if (empty($competitions)) {
-        dd("AUCUNE COMPETITION NATIONALE");
-    }
+        if (empty($competitions)) {
+            throw new \Exception("IMPORT JSON FAIL");
+        }
 
-    /*
+        /*
     =====================
     INSERT DB
     =====================
     */
 
-    $model = new \App\Models\CompetitionModel();
+        $model = new \App\Models\CompetitionModel();
 
-    $count = 0;
+        $count = 0;
 
-    foreach ($competitions as $c) {
+        foreach ($competitions as $c) {
 
-        // règle : national = urs_id NULL
-        $isNational = empty($c['urs_id']);
+            // règle : national = urs_id NULL
+            $isNational = empty($c['urs_id']);
 
-        if (!$isNational) continue;
+            if (!$isNational) continue;
 
-        $model->save([
-            'id'     => $c['id'],
-            'nom'    => $c['nom'],
-            'saison' => $c['saison'],
-            'urs_id' => null,
-            'type'   => 0 // NATIONAL
-        ]);
+            $model->save([
+                'id'     => $c['id'],
+                'nom'    => $c['nom'],
+                'saison' => $c['saison'],
+                'urs_id' => null,
+                'type'   => 0 // NATIONAL
+            ]);
 
-        $count++;
+            $count++;
+        }
+        service('classement')->compute($competitions['id']);
+
+        return ['code' => 0];
     }
-    dd($data['competitions'][0]['id']);
-    dd($data['rcompetitions'][0]['id']);
-    dd("IMPORT NATIONAL OK", "Nb = " . $count);
-}
+
+
 
     private function deleteDir($dir)
     {
@@ -317,7 +370,7 @@ public function importNationalFromCopain()
 
         $folder =
             $compet['saison'] . '_' .
-            str_pad($compet['urs_id'], 2, '0', STR_PAD_LEFT) . '_' .
+            str_pad((int)$compet['urs_id'], 2, '0', STR_PAD_LEFT) . '_' .
             $compet['numero'] . '_' .
             $compet['id'];
 

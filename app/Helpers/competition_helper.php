@@ -37,13 +37,13 @@ function competition_code($c): string
 
     $saison = $c['saison'];
     $id     = $c['id'];
-    $numero = str_pad($c['numero'] ?? 0, 4, '0', STR_PAD_LEFT);
+    $numero = str_pad((string)$c['numero'] ?? 0, 4, '0', STR_PAD_LEFT);
 
     if (empty($c['urs_id'])) {
         return "{$saison}_N_{$id}_00_{$numero}";
     }
 
-    $ur = str_pad($c['urs_id'], 2, '0', STR_PAD_LEFT);
+    $ur = str_pad((string)$c['urs_id'], 2, '0', STR_PAD_LEFT);
 
     return "{$saison}_R_{$id}_{$ur}_{$numero}";
 }

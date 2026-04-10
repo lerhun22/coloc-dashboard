@@ -55,7 +55,7 @@ class Dashboard extends BaseController
             'syntheseClubs'        => $syntheseClubs,
         ]);
 
-        return view('dashboard/index', $data);
+        return view('competitions/dashboard/index', $data);
     }
 
     public function exportPdf()

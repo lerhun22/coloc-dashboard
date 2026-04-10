@@ -110,9 +110,8 @@ class Jugement extends BaseController
 
             ->getResultArray();
 
-        log_message('debug', json_encode($photos[0]));
-        log_message('debug', print_r($photos,true));
-        
+        //log_message('debug', json_encode($photos[0]));
+        //log_message('debug', print_r($photos,true));
 
 
         if (empty($photos)) {
@@ -172,19 +171,19 @@ class Jugement extends BaseController
        PHOTO + NOTES (AJAX)
     ===================================================== */
 
-public function photo($photo_id = null)
-{
-    if (!$photo_id) {
-        return $this->response->setStatusCode(404);
-    }
-    
-    $competition_id = $this->requireCompetition();
+    public function photo($photo_id = null)
+    {
+        if (!$photo_id) {
+            return $this->response->setStatusCode(404);
+        }
 
-    log_message('debug', 'PHOTO ID = ' . $photo_id);
+        $competition_id = $this->requireCompetition();
 
-    $photo = $this->db->table('photos p')
+        log_message('debug', 'PHOTO ID = ' . $photo_id);
 
-        ->select('
+        $photo = $this->db->table('photos p')
+
+            ->select('
             p.id as photo_id,
             p.ean,
             p.passage,
@@ -195,20 +194,20 @@ public function photo($photo_id = null)
             c.nom as club
         ')
 
-        ->join('participants pa', 'pa.id = p.participants_id', 'left')
-        ->join('clubs c', 'c.id = pa.clubs_id', 'left')
+            ->join('participants pa', 'pa.id = p.participants_id', 'left')
+            ->join('clubs c', 'c.id = pa.clubs_id', 'left')
 
-        ->where('p.id', (int)$photo_id) // 🔥 IMPORTANT cast int
+            ->where('p.id', (int)$photo_id) // 🔥 IMPORTANT cast int
 
-        ->get()
-        ->getRowArray();
+            ->get()
+            ->getRowArray();
 
-    if (!$photo) {
-        return $this->response->setJSON([
-            'error' => 'PHOTO NOT FOUND !!!!!!!!!',
-            'photo_id' => $photo_id
-        ]);
-    }
+        if (!$photo) {
+            return $this->response->setJSON([
+                'error' => 'PHOTO NOT FOUND !!!!!!!!!',
+                'photo_id' => $photo_id
+            ]);
+        }
 
         $notes = $this->db->table('notes')
             ->select('juges_id, note')
@@ -223,11 +222,11 @@ public function photo($photo_id = null)
             $notesFormatted[$n['juges_id']] = $n['note'];
         }
 
-    return $this->response->setJSON([
-        'photo' => $photo,
-        'notes' => $notesFormatted       
-    ]);
-}
+        return $this->response->setJSON([
+            'photo' => $photo,
+            'notes' => $notesFormatted
+        ]);
+    }
 
 
     /* =====================================================

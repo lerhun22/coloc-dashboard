@@ -152,7 +152,6 @@ public function downloadFile($url, $dest)
         mkdir($dir, 0777, true);
     }
 
-    // 🔥 suppression ancien fichier
     if (file_exists($dest)) {
         unlink($dest);
     }
@@ -166,8 +165,11 @@ public function downloadFile($url, $dest)
 
     $ch = curl_init($url);
 
-    // 🔥 variable pour limiter les logs
-    $lastLogTime = 0;
+    // 🔥 seuil de log = 50 MB
+    $logStep = 50 * 1024 * 1024;
+
+    // 🔥 prochain seuil à atteindre
+    $nextLog = $logStep;
 
     curl_setopt_array($ch, [
 
@@ -191,7 +193,6 @@ public function downloadFile($url, $dest)
             "Origin: https://copain.federation-photo.fr"
         ],
 
-        // 🔥 progression sécurisée
         CURLOPT_NOPROGRESS => false,
         CURLOPT_PROGRESSFUNCTION => function (
             $resource,
@@ -199,14 +200,15 @@ public function downloadFile($url, $dest)
             $downloaded,
             $upload_size,
             $uploaded
-        ) use (&$lastLogTime) {
+        ) use (&$nextLog, $logStep) {
 
-            // log max toutes les 2 secondes
-            if (time() - $lastLogTime < 2) {
+            // 👉 log uniquement tous les 50 MB
+            if ($downloaded < $nextLog) {
                 return;
             }
 
-            $lastLogTime = time();
+            // 👉 avancer le prochain seuil
+            $nextLog += $logStep;
 
             if ($download_size > 0) {
 
@@ -218,6 +220,7 @@ public function downloadFile($url, $dest)
                     round($downloaded / 1024 / 1024, 1) . " MB / " .
                     round($download_size / 1024 / 1024, 1) . " MB)"
                 );
+
             } else {
 
                 log_message(
@@ -228,37 +231,16 @@ public function downloadFile($url, $dest)
         },
     ]);
 
-    curl_exec($ch);
+    $result = curl_exec($ch);
 
-    if (curl_errno($ch)) {
-        log_message('error', curl_error($ch));
-        curl_close($ch);
-        fclose($fp);
-        return false;
+    if ($result === false) {
+        log_message('error', 'CURL ERROR: ' . curl_error($ch));
     }
 
     curl_close($ch);
     fclose($fp);
 
-    clearstatcache(true, $dest);
-
-    $size = filesize($dest);
-
-    log_message('debug', 'ZIP SIZE = ' . $size);
-
-    /*
-    🔥 Vérification que c’est bien un ZIP
-    */
-    $fp = fopen($dest, 'rb');
-    $magic = fread($fp, 2);
-    fclose($fp);
-
-    if ($magic !== "PK") {
-        log_message('error', 'NOT A ZIP (AUTH ISSUE)');
-        return false;
-    }
-
-    return true;
+    return $result !== false;
 }
 
     /*

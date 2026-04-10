@@ -44,6 +44,22 @@ $routes->get('import/progress/(:num)', 'ImportFromCopain::progress/$1');
 $routes->get('import/step/(:num)', 'ImportFromCopain::step/$1');
 
 /*
+|--------------------------------------------------------------------------
+IMPORT DB
+|--------------------------------------------------------------------------
+*/
+$routes->get('import/db/(:num)', 'ImportFromCopain::importOne/$1');
+
+/*
+|--------------------------------------------------------------------------
+IMPORT FULL (DB + ZIP)
+|--------------------------------------------------------------------------
+*/
+$routes->get('import/full/(:num)', 'ImportFromCopain::importFull/$1');
+
+
+
+/*
 👉 UNE SEULE route ZIP → ImportFromCopain
 */
 $routes->get('import/zip/(:num)', 'ImportFromCopain::importZip/$1');
@@ -96,7 +112,11 @@ $routes->post('suivi/save', 'Suivi::save');
 TEST
 |--------------------------------------------------------------------------
 */
-$routes->get('test/run', fn () => print("TEST OK"));
+
+$routes->get('compute', 'Home::index');
+
+$routes->get('test/run', fn() => print("TEST OK"));
+
 
 $routes->get('test/copain', 'Home::testCopain');
 $routes->get('test/copain-api', 'Home::testCopainApi');

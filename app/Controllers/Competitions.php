@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\CompetitionModel;
 use App\Models\PhotoModel;
 use App\Libraries\CompetitionService;
+use App\Libraries\CompetitionStatsBulkService;
 
 class Competitions extends BaseController
 {
@@ -14,7 +15,6 @@ class Competitions extends BaseController
     {
         $this->photoModel = new PhotoModel();
     }
-
 
     /*
     ==========================
@@ -31,12 +31,36 @@ class Competitions extends BaseController
 
         $this->data['page_css'] = 'competitions.css';
 
+        // 🔥 IMPORTANT
+        $competitions_list = $this->data['competitions_list'];
+
+        $service = new CompetitionStatsBulkService();
+
+        // récupérer tous les IDs
+        $ids = array_column($competitions_list, 'id');
+
+        // charger toutes les stats en 1 fois
+        $allStats = $service->getStatsForCompetitions($ids);
+
+        // injecter dans la liste
+        foreach ($competitions_list as &$competition) {
+            $stats = $allStats[$competition['id']] ?? [];
+
+            $competition['photo_count'] = $stats['photo_count'] ?? 0;
+            $competition['author_count'] = $stats['author_count'] ?? 0;
+            $competition['club_count'] = $stats['club_count'] ?? 0;
+            $competition['avg_photos_per_author'] = $stats['avg_photos_per_author'] ?? 0;
+            $competition['avg_photos_per_club'] = $stats['avg_photos_per_club'] ?? 0;
+        }
+
+        // 🔥 CRUCIAL
+        $this->data['competitions_list'] = $competitions_list;
+
         return view(
             'competitions/index',
             $this->data
         );
     }
-
 
     /*
     ==========================
@@ -115,17 +139,32 @@ class Competitions extends BaseController
 
         $db = \Config\Database::connect();
 
+        $ur = getenv('copain.uruser') ?? '01';
+        $ur = str_pad((string)$ur, 2, '0', STR_PAD_LEFT);
+
         $photos = $db->table('photos p')
             ->select("
-                p.id,
-                p.ean,
-                p.titre,
-                p.saisie,
-                p.passage,
-                p.place,
-                pa.nom AS auteur,
-                cl.nom AS club
-            ")
+        p.id,
+        p.ean,
+        p.titre,
+        p.saisie,
+        p.passage,
+        p.place,
+
+        CASE 
+            WHEN SUBSTRING(p.ean,1,2) = '{$ur}'
+                 AND pa.nom IS NOT NULL
+            THEN CONCAT(pa.prenom, ' ', pa.nom)
+            ELSE ''
+        END AS auteur,
+
+        CASE 
+            WHEN SUBSTRING(p.ean,1,2) = '{$ur}'
+                 AND cl.nom IS NOT NULL
+            THEN cl.nom
+            ELSE ''
+        END AS club
+    ")
             ->join('participants pa', 'pa.id = p.participants_id', 'left')
             ->join('clubs cl', 'cl.id = pa.clubs_id', 'left')
             ->where('p.competitions_id', $id)

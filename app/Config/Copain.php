@@ -47,6 +47,6 @@ class Copain extends BaseConfig
         $this->profiluser =
             env('profil.user');
         $this->uruser =
-            env('ur.user');
+            env('copain.uruser');
     }
 }

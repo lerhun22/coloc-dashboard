@@ -101,15 +101,27 @@
 
                     <div class="competition-right">
 
-                        <?= $competition['photo_count'] ?? 0 ?> photos •
+                        <?php
+                        $photos = $competition['photo_count'] ?? 0;
+                        $authors = $competition['author_count'] ?? 0;
+                        $clubs = $competition['club_count'] ?? 0;
 
-                        <?= $competition['author_count'] ?? 0 ?> auteurs •
+                        $avgAuthor = $competition['avg_photos_per_author'] ?? 0;
+                        $avgClub = $competition['avg_photos_per_club'] ?? 0;
 
-                        <?= $competition['club_count'] ?? 0 ?> clubs •
+                        $isJudged = $competition['is_judged'] ?? false;
+                        ?>
 
-                        Ø <?= $competition['avg_photos_per_author'] ?? 0 ?> / auteur •
+                        <div class="competition-stats-line">
+                            <?= $photos ?> photos •
+                            <?= $authors ?> auteurs •
+                            <?= $clubs ?> clubs
+                        </div>
 
-                        Ø <?= $competition['avg_photos_per_club'] ?? 0 ?> / club
+                        <div class="competition-stats-line secondary">
+                            Ø <?= $avgAuthor ?> / auteur •
+                            Ø <?= $avgClub ?> / club
+                        </div>
 
                     </div>
 

@@ -137,11 +137,12 @@ class NationalZipService
         STEP 6 — DEBUG FILES (OPTIONNEL MAIS UTILE)
         =====================
         */
-
+        /*
         foreach (glob($paths['photos'] . '*') as $file) {
             log_message('debug', '[ZIP N] FILE = ' . $file);
         }
-
+        */
+        
         /*
         =====================
         STEP 7 — THUMBS

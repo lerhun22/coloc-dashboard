@@ -20,214 +20,219 @@
         margin-bottom: 20px;
     }
 
-    .badge {
-        padding: 3px 10px;
-        border-radius: 20px;
-        font-size: 12px;
-    }
-
-    .badge-regional {
-        background: #e7f1ff;
-        color: #1d4ed8;
-        border: 1px solid #1d4ed8;
-    }
-
-    .badge-national {
-        background: #f3e8ff;
-        color: #7e22ce;
-        border: 1px solid #7e22ce;
+    .filter-bar button.active {
+        background: #1976d2;
+        color: #fff;
     }
 </style>
 <?= $this->endSection() ?>
 
-<?php
-$isNational = ($userProfil === 'CommissaireNational');
-$isRegional = ($userProfil === 'CommissaireRegional');
-$defaultUR = str_pad($userUR ?? 0, 2, '0', STR_PAD_LEFT);
-?>
-
 <h2>Import compétition COPAINS</h2>
 
+<!-- 🎯 FILTRES -->
 <div class="filter-bar">
 
     <strong>Type :</strong>
-
-    <?php if ($isNational): ?>
-        <button onclick="setType(null)">Tous</button>
-        <button onclick="setType('national')">National</button>
-        <button onclick="setType('regional')">Régional</button>
-    <?php else: ?>
-        <span>Régional uniquement</span>
-    <?php endif; ?>
+    <button onclick="showAll()">Tous</button>
+    <button onclick="showNational()">National</button>
+    <button onclick="showRegionalAll()">Régional</button>
 
     <strong>UR :</strong>
+    <button onclick="showRegionalAll()">Toutes</button>
 
-    <select id="filter-ur" onchange="applyFilters()">
-        <?php if ($isNational): ?>
-            <option value="">Toutes</option>
-        <?php endif; ?>
-
-        <?php foreach ($urs as $ur): ?>
-            <?php $u = str_pad($ur, 2, '0', STR_PAD_LEFT); ?>
-            <option value="<?= $u ?>" <?= $u == $defaultUR ? 'selected' : '' ?>>
-                UR <?= $u ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
+    <?php foreach ($urs as $u): ?>
+        <button onclick="showRegionalUR('<?= $u ?>')">
+            UR <?= $u ?>
+        </button>
+    <?php endforeach; ?>
 
 </div>
 
+<!-- 🔵 NATIONAL -->
 <h3>National</h3>
 <div class="card-grid">
     <?php foreach ($competitions as $c): ?>
-        <?= view('import/card', ['c' => $c, 'label' => 'National']) ?>
+        <?= view('import/card', ['c' => $c]) ?>
     <?php endforeach ?>
 </div>
 
+<!-- 🟢 REGIONAL -->
 <h3>Régional</h3>
 <div class="card-grid">
     <?php foreach ($rcompetitions as $c): ?>
-        <?= view('import/card', ['c' => $c, 'label' => 'Régional']) ?>
+        <?= view('import/card', ['c' => $c]) ?>
     <?php endforeach ?>
 </div>
 
+<!-- 🔥 ROUTES GLOBAL -->
+
 <script>
-    let running = null;
-    let currentType = null;
+    window.BASE_URL = "<?= base_url() ?>";
+</script>
 
-    const labels = {
-        download_json: "Chargement données",
-        download_zip: "Téléchargement images",
-        extract_zip: "Extraction",
-        move_files: "Organisation fichiers",
-        thumbs: "Miniatures",
-        done: "Terminé"
-    };
 
-    function tickCard(id) {
-        fetch("<?= base_url('import/step') ?>/" + id)
-            .then(r => r.json())
-            .then(s => {
+<script>
+    window.ROUTES = <?= json_encode($routes) ?>;
+</script>
 
-                const bar = document.getElementById("bar-" + id);
-                const text = document.getElementById("text-" + id);
+<script>
+    // =========================
+    // 🎯 STATE
+    // =========================
+    let currentMode = null;
+    let currentUR = null;
 
-                if (bar) bar.style.width = s.progress + "%";
-
-                if (text && s.status !== "done") {
-                    const label = labels[s.step] || s.step;
-                    text.innerHTML = label + " — " + s.progress + "%";
-                }
-
-                if (s.status === "done") {
-
-                    running = null;
-
-                    if (text) {
-                        text.innerHTML = "✅ Import terminé";
-                    }
-
-                    setTimeout(() => {
-                        window.location =
-                            "<?= base_url('competitions/') ?>" + id + '/photos';
-                    }, 1000);
-
-                } else {
-                    setTimeout(() => tickCard(id), 500);
-                }
-
-            })
-            .catch(err => {
-                console.error(err);
-                running = null;
-            });
+    // =========================
+    // 💾 STORAGE
+    // =========================
+    function saveFilters() {
+        localStorage.setItem('copainFilters', JSON.stringify({
+            mode: currentMode,
+            ur: currentUR
+        }));
     }
 
-    function startImport(id) {
+    function loadFilters() {
+        const saved = localStorage.getItem('copainFilters');
 
-        if (running) {
-            alert("Import déjà en cours");
-            return;
+        if (saved) {
+            const f = JSON.parse(saved);
+            currentMode = f.mode;
+            currentUR = f.ur;
         }
-
-        running = id;
-
-        document.getElementById('progress-' + id).style.display = 'block';
-
-        fetch("<?= base_url('import/start') ?>/" + id + "?mode=card")
-            .then(r => r.json())
-            .then(() => tickCard(id));
     }
 
-    function normalizeUR(v) {
-        if (!v) return '00';
-        return String(parseInt(v)).padStart(2, '0');
-    }
-
-    function setType(type) {
-        currentType = type;
-
-        const urFilter = document.getElementById('filter-ur');
-
-        // 🔴 NATIONAL → reset + disable
-        if (type === 'national') {
-            urFilter.value = '';
-            urFilter.disabled = true;
-            urFilter.style.opacity = 0.5;
-        } else {
-            // 🟢 REGIONAL + TOUS → actif
-            urFilter.disabled = false;
-            urFilter.style.opacity = 1;
-        }
-
-        applyFilters();
-    }
-
+    // =========================
+    // 🎯 FILTER
+    // =========================
     function applyFilters() {
-
-        let ur = document.getElementById('filter-ur')?.value;
-        let targetUR = ur ? normalizeUR(ur) : null;
 
         document.querySelectorAll('.card-import').forEach(card => {
 
-            const cardUR = normalizeUR(card.dataset.ur);
-            const cardType = card.dataset.type;
+            const isNational = card.classList.contains('national');
+            const isRegional = card.classList.contains('regional');
+            const ur = card.dataset.ur;
 
-            let show = true;
+            let show = false;
 
-            // 🔴 TYPE = NATIONAL
-            if (currentType === 'national') {
-                show = (cardType === 'national');
-                targetUR = null; // ignore UR
+            if (currentMode === 'all') {
+                show = true;
+            } else if (currentMode === 'national') {
+                show = isNational;
+            } else if (currentMode === 'regional') {
+
+                if (isRegional) {
+                    show = (!currentUR || ur === currentUR);
+                }
             }
-
-            // 🟢 TYPE = REGIONAL
-            else if (currentType === 'regional') {
-                if (cardType !== 'regional') show = false;
-            }
-
-            // 🟡 TYPE = TOUS → pas de filtre type
-
-            // 🔵 FILTRE UR (si actif)
-            if (show && targetUR) {
-                if (cardUR !== targetUR) show = false;
-            }
-
-            <?php if ($isRegional): ?>
-                if (cardType !== 'regional') show = false;
-            <?php endif; ?>
 
             card.style.display = show ? 'block' : 'none';
         });
     }
 
-    window.onload = function() {
+    // =========================
+    // 🎨 ACTIVE BUTTON
+    // =========================
+    function setActiveButton(type, ur = null) {
 
-        <?php if ($isRegional): ?>
-            currentType = 'regional';
-        <?php endif; ?>
+        document.querySelectorAll('.filter-bar button')
+            .forEach(b => b.classList.remove('active'));
 
+        if (type === 'all') {
+            document.querySelector('[onclick="showAll()"]').classList.add('active');
+        } else if (type === 'national') {
+            document.querySelector('[onclick="showNational()"]').classList.add('active');
+        } else if (type === 'regional' && !ur) {
+            document.querySelector('[onclick="showRegionalAll()"]').classList.add('active');
+        } else if (type === 'regional' && ur) {
+            document.querySelector(`[onclick="showRegionalUR('${ur}')"]`)?.classList.add('active');
+        }
+    }
+
+    // =========================
+    // 🎯 ACTIONS
+    // =========================
+    function showAll() {
+        currentMode = 'all';
+        currentUR = null;
+        saveFilters();
+        setActiveButton('all');
         applyFilters();
+    }
+
+    function showNational() {
+        currentMode = 'national';
+        currentUR = null;
+        saveFilters();
+        setActiveButton('national');
+        applyFilters();
+    }
+
+    function showRegionalAll() {
+        currentMode = 'regional';
+        currentUR = null;
+        saveFilters();
+        setActiveButton('regional');
+        applyFilters();
+    }
+
+    function showRegionalUR(ur) {
+        currentMode = 'regional';
+        currentUR = ur;
+        saveFilters();
+        setActiveButton('regional', ur);
+        applyFilters();
+    }
+
+    // =========================
+    // 🚀 INIT
+    // =========================
+    document.addEventListener('DOMContentLoaded', () => {
+
+        loadFilters();
+
+        // 🔥 fallback si rien en storage
+        if (!currentMode) {
+            currentMode = 'regional';
+            currentUR = "<?= $defaultUR ?>";
+        }
+
+        console.log("INIT:", currentMode, currentUR);
+
+        setActiveButton(currentMode, currentUR);
+        applyFilters();
+    });
+
+    // =========================
+    // 📦 IMPORT DB
+    // =========================
+    window.startImportDB = function(id, type) {
+
+        const text = document.getElementById(`text-${id}`);
+
+        text.innerHTML = "⏳ Import DB en cours...";
+
+        fetch(`${ROUTES.import.db}/${id}?type=${type}`)
+            .then(res => res.json())
+            .then(data => {
+
+                console.log("DATA =", data);
+
+                // 🔥 on se base sur le BACKEND uniquement pour l'affichage
+                let label = (data.urs_id === null) ?
+                    'National' :
+                    'Régional';
+
+                text.innerHTML =
+                    data.status === 'ok' ?
+                    `✅ DB importée (${label})` :
+                    `❌ Erreur import`;
+
+            })
+            .catch(err => {
+                console.error(err);
+                text.innerHTML = "❌ Exception";
+            });
     };
 </script>
 

@@ -30,5 +30,12 @@ class Services extends BaseService
      * }
      */
 
+    public static function classement($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('classement');
+        }
 
+        return new \App\Services\ClassementService();
+    }
 }

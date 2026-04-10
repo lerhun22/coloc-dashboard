@@ -61,7 +61,6 @@ class CopainImporter
         }
     }
 
-
     /*
     ===========================
     GET JSON
@@ -225,9 +224,7 @@ class CopainImporter
                 }
             }
 
-
             log_message('debug', 'COMPET OK');
-
 
             /*
             =====================
@@ -253,9 +250,7 @@ class CopainImporter
                 }
             }
 
-
             log_message('debug', 'CLUBS OK');
-
 
             /*
             =====================
@@ -301,9 +296,7 @@ class CopainImporter
                 }
             }
 
-
             log_message('debug', 'PARTICIPANTS OK');
-
 
             /*
             =====================
@@ -339,9 +332,7 @@ class CopainImporter
                 }
             }
 
-
             log_message('debug', 'JUGES OK');
-
 
             /*
             =====================
@@ -404,9 +395,7 @@ class CopainImporter
                 }
             }
 
-
             log_message('debug', 'PHOTOS OK');
-
 
             /*
             =====================
@@ -444,9 +433,7 @@ class CopainImporter
                 }
             }
 
-
             log_message('debug', 'NOTES OK');
-
 
             /*
             =====================
@@ -485,12 +472,85 @@ class CopainImporter
                 }
             }
 
-
             log_message('debug', 'MEDAILLES OK');
+
+            /*
+=====================
+CLASSEMENT AUTEURS
+=====================
+*/
+
+            if (!empty($response['file_classement_auteurs'])) {
+
+                $rows = json_decode(
+                    $this->getJson($response['file_classement_auteurs']),
+                    true
+                );
+
+                foreach ($rows ?? [] as $r) {
+
+                    $db->table('classementauteurs')->replace([
+                        'competitions_id' => $ref,
+                        'participants_id' => str_replace('-', '', $r['participants_id']),
+                        'total' => $r['total'] ?? 0,
+                        'place' => $r['place'] ?? 0,
+                        'nb_photos' => $r['nb_photos'] ?? 0,
+                    ]);
+                }
+            }
+
+            log_message('debug', 'CLASSEMENT AUTEURS OK');
+
+
+            /*
+=====================
+CLASSEMENT CLUBS
+=====================
+*/
+
+            if (!empty($response['file_classement_clubs'])) {
+
+                $rows = json_decode(
+                    $this->getJson($response['file_classement_clubs']),
+                    true
+                );
+
+                foreach ($rows ?? [] as $r) {
+
+                    $db->table('classementclubs')->replace([
+                        'competitions_id' => $ref,
+                        'clubs_id' => $r['clubs_id'],
+                        'total' => $r['total'] ?? 0,
+                        'place' => $r['place'] ?? 0,
+                        'nb_photos' => $r['nb_photos'] ?? 0,
+                    ]);
+                }
+            }
+
+            log_message('debug', 'CLASSEMENT CLUBS OK');
+
+
+            /*
+=====================
+FLAGS
+=====================
+*/
+
+            $db->table('classements')->replace([
+                'competitions_id' => $ref,
+                'afaire'  => 0,
+                'graphe'  => 1,
+                'photos'  => 1,
+                'clubs'   => 1,
+                'auteurs' => 1,
+            ]);
+
+            log_message('debug', 'CLASSEMENTS FLAGS OK');
+
+
 
 
             $db->transComplete();
-
 
             log_message('debug', 'IMPORT END');
 
@@ -505,6 +565,17 @@ class CopainImporter
             return ['code' => 'EXCEPTION'];
         }
     }
+
+
+
+
+
+
+
+
+
+
+
 
     public function downloadChunk()
     {
@@ -760,178 +831,177 @@ class CopainImporter
         );
     }
 
-public function extractChunk()
-{
-    $ref = $this->competitionId ?? null;
+    public function extractChunk()
+    {
+        $ref = $this->competitionId ?? null;
 
-    log_message('debug', 'COMPETITION = ' . json_encode($ref));
+        log_message('debug', 'COMPETITION = ' . json_encode($ref));
 
-    if (!$ref) return true;
+        if (!$ref) return true;
 
-    $zipPath =
-        WRITEPATH .
-        'imports/' .
-        $ref .
-        '.zip';
+        $zipPath =
+            WRITEPATH .
+            'imports/' .
+            $ref .
+            '.zip';
 
-    if (!file_exists($zipPath)) {
+        if (!file_exists($zipPath)) {
 
-        log_message('error', 'ZIP NOT FOUND');
+            log_message('error', 'ZIP NOT FOUND');
 
-        return true;
-    }
+            return true;
+        }
 
-    /*
+        /*
     -------------------
     LOAD COMPETITION
     -------------------
     */
 
-    $db = \Config\Database::connect();
+        $db = \Config\Database::connect();
 
-    $competition = $db->table('competitions')
-        ->where('id', $ref)
-        ->get()
-        ->getRow();
+        $competition = $db->table('competitions')
+            ->where('id', $ref)
+            ->get()
+            ->getRow();
 
-    if (!$competition) {
+        if (!$competition) {
 
-        log_message('error', 'COMPETITION NOT FOUND');
+            log_message('error', 'COMPETITION NOT FOUND');
 
-        return true;
-    }
-    log_message('debug', 'COMPETITION = ' . json_encode($competition));
-    /*
+            return true;
+        }
+        log_message('debug', 'COMPETITION = ' . json_encode($competition));
+        /*
     -------------------
     STORAGE (SOURCE OF TRUTH)
     -------------------
     */
 
-    $storage = new \App\Libraries\CompetitionStorage();
+        $storage = new \App\Libraries\CompetitionStorage();
 
-    // 🔥 crée toute la structure proprement
-    $paths = $storage->ensureStructure($competition);
+        // 🔥 crée toute la structure proprement
+        $paths = $storage->ensureStructure($competition);
 
-    $basePath  = $paths['base'];
-    $photosDir = $paths['photos'];
-    $thumbsDir = $paths['thumbs'];
+        $basePath  = $paths['base'];
+        $photosDir = $paths['photos'];
+        $thumbsDir = $paths['thumbs'];
 
-    // autres dossiers
-    $pteDir = $storage->getPtePath($competition);
-    $pdfDir = $storage->getPdfPath($competition);
-    $csvDir = $storage->resolvePath($competition) . 'csv/';
+        // autres dossiers
+        $pteDir = $storage->getPtePath($competition);
+        $pdfDir = $storage->getPdfPath($competition);
+        $csvDir = $storage->resolvePath($competition) . 'csv/';
 
-    // sécurité (au cas où)
-    foreach ([$pteDir, $pdfDir, $csvDir] as $d) {
-        if (!is_dir($d)) {
-            mkdir($d, 0777, true);
+        // sécurité (au cas où)
+        foreach ([$pteDir, $pdfDir, $csvDir] as $d) {
+            if (!is_dir($d)) {
+                mkdir($d, 0777, true);
+            }
         }
-    }
 
-    /*
+        /*
     -------------------
     EXTRACT TO TMP
     -------------------
     */
 
-    $tmpDir =
-        WRITEPATH .
-        'imports/tmp_' .
-        $ref . '/';
+        $tmpDir =
+            WRITEPATH .
+            'imports/tmp_' .
+            $ref . '/';
 
-    if (!is_dir($tmpDir)) {
-        mkdir($tmpDir, 0777, true);
-    }
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0777, true);
+        }
 
-    $zip = new \ZipArchive();
+        $zip = new \ZipArchive();
 
-    if ($zip->open($zipPath) !== true) {
+        if ($zip->open($zipPath) !== true) {
 
-        log_message('error', 'ZIP OPEN ERROR');
+            log_message('error', 'ZIP OPEN ERROR');
 
-        return true;
-    }
+            return true;
+        }
 
-    $zip->extractTo($tmpDir);
+        $zip->extractTo($tmpDir);
 
-    $zip->close();
+        $zip->close();
 
-    log_message('debug', 'EXTRACT TMP OK');
+        log_message('debug', 'EXTRACT TMP OK');
 
-    /*
+        /*
     -------------------
     FIND JPG
     -------------------
     */
 
-    $jpgs = $this->findJpg($tmpDir);
+        $jpgs = $this->findJpg($tmpDir);
 
-    log_message(
-        'debug',
-        'JPG FOUND ' . count($jpgs)
-    );
+        log_message(
+            'debug',
+            'JPG FOUND ' . count($jpgs)
+        );
 
-    /*
+        /*
     -------------------
     MOVE JPG → photos/
     -------------------
     */
 
-    foreach ($jpgs as $file) {
+        foreach ($jpgs as $file) {
 
-        $name = basename($file);
+            $name = basename($file);
 
-        rename(
-            $file,
-            $photosDir . $name
-        );
-    }
+            rename(
+                $file,
+                $photosDir . $name
+            );
+        }
 
-    log_message('debug', 'MOVE OK');
+        log_message('debug', 'MOVE OK');
 
-    /*
+        /*
     -------------------
     GENERATE THUMBS
     -------------------
     */
 
-    try {
+        try {
 
-        $tool =
-            new \App\Controllers\Tools\GenererVignettes();
+            $tool =
+                new \App\Controllers\Tools\GenererVignettes();
 
-        $tool->index($ref);
+            $tool->index($ref);
 
-        log_message('debug', 'THUMBS OK');
+            log_message('debug', 'THUMBS OK');
+        } catch (\Throwable $e) {
 
-    } catch (\Throwable $e) {
+            log_message(
+                'error',
+                'THUMBS ERROR ' . $e->getMessage()
+            );
+        }
 
-        log_message(
-            'error',
-            'THUMBS ERROR ' . $e->getMessage()
-        );
+        return true;
     }
 
-    return true;
-}
+    private function getCompetitionFolder($id)
+    {
+        $db = \Config\Database::connect();
 
-private function getCompetitionFolder($id)
-{
-    $db = \Config\Database::connect();
+        $c = $db->table('competitions')
+            ->where('id', $id)
+            ->get()
+            ->getRow();
 
-    $c = $db->table('competitions')
-        ->where('id', $id)
-        ->get()
-        ->getRow();
+        if (!$c) {
+            return $id;
+        }
 
-    if (!$c) {
-        return $id;
+        $storage = new \App\Libraries\CompetitionStorage();
+
+        return $storage->getCode($c);
     }
-
-    $storage = new \App\Libraries\CompetitionStorage();
-
-    return $storage->getCode($c);
-}
 
     private function findJpg($dir)
     {
@@ -1000,34 +1070,34 @@ private function getCompetitionFolder($id)
 
         return true;
     }
-public function moveAllImages($tempPath, $photosPath)
-{
-    $count = 0;
+    public function moveAllImages($tempPath, $photosPath)
+    {
+        $count = 0;
 
-    $iterator = new \RecursiveIteratorIterator(
-        new \RecursiveDirectoryIterator($tempPath)
-    );
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($tempPath)
+        );
 
-    foreach ($iterator as $file) {
+        foreach ($iterator as $file) {
 
-        if ($file->isDir()) continue;
+            if ($file->isDir()) continue;
 
-        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
 
-        if (!in_array($ext, ['jpg', 'jpeg', 'png'])) continue;
+            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) continue;
 
-        $dest = rtrim($photosPath, '/') . '/' . basename($file);
+            $dest = rtrim($photosPath, '/') . '/' . basename($file);
 
-        if (!file_exists($dest)) {
-            rename($file->getPathname(), $dest);
-            $count++;
+            if (!file_exists($dest)) {
+                rename($file->getPathname(), $dest);
+                $count++;
+            }
         }
+
+        log_message('debug', '[MOVE] moved files = ' . $count);
+
+        return $count > 0;
     }
-
-    log_message('debug', '[MOVE] moved files = ' . $count);
-
-    return $count > 0;
-}
     public function moveChunk()
     {
         $ref = $this->competitionId;
