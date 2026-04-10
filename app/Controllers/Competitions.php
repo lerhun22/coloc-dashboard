@@ -31,35 +31,82 @@ class Competitions extends BaseController
 
         $this->data['page_css'] = 'competitions.css';
 
-        // 🔥 IMPORTANT
         $competitions_list = $this->data['competitions_list'];
 
         $service = new CompetitionStatsBulkService();
 
-        // récupérer tous les IDs
         $ids = array_column($competitions_list, 'id');
 
-        // charger toutes les stats en 1 fois
         $allStats = $service->getStatsForCompetitions($ids);
 
-        // injecter dans la liste
-        foreach ($competitions_list as &$competition) {
-            $stats = $allStats[$competition['id']] ?? [];
+        $userUr = (int)(env('copain.uruser') ?: 22);
 
+        foreach ($competitions_list as &$competition) {
+
+            $id = $competition['id'];
+            $stats = $allStats[$id] ?? [];
+
+            // =========================
+            // 📊 STATS BASE
+            // =========================
             $competition['photo_count'] = $stats['photo_count'] ?? 0;
-            $competition['author_count'] = $stats['author_count'] ?? 0;
-            $competition['club_count'] = $stats['club_count'] ?? 0;
-            $competition['avg_photos_per_author'] = $stats['avg_photos_per_author'] ?? 0;
-            $competition['avg_photos_per_club'] = $stats['avg_photos_per_club'] ?? 0;
+            $competition['club_count']  = $stats['club_count'] ?? 0;
+
+            /*
+        =====================================================
+        🔥 NATIONAL → recalcul EAN
+        =====================================================
+        */
+            if (empty($competition['urs_id'])) {
+
+                $photos = $this->photoModel
+                    ->select('ean')
+                    ->where('competitions_id', $id)
+                    ->findAll();
+
+                $eanStats = $service->computeFromEAN($photos, $userUr);
+
+                $competition['author_count'] = $eanStats['participants'];
+                $competition['clubs_nat']    = $eanStats['clubs_nat'];
+                $competition['clubs_ur']     = $eanStats['clubs_ur'];
+            } else {
+
+                /*
+            =====================================================
+            🔹 REGIONAL
+            =====================================================
+            */
+                $competition['author_count'] = $stats['author_count'] ?? 0;
+                $competition['clubs_nat']    = $competition['club_count'];
+                $competition['clubs_ur']     = $competition['club_count'];
+            }
+
+            /*
+        =====================================================
+        🔥 PERFORMANCE (TOUJOURS DEFINIE)
+        =====================================================
+        */
+            $photos  = $competition['photo_count'];
+            $authors = $competition['author_count'];
+
+            $score = ($photos * 0.7) + ($authors * 0.3);
+
+            $competition['performance_score'] = round($score);
+
+            if ($score > 300) {
+                $competition['performance_level'] = 'high';
+            } elseif ($score > 100) {
+                $competition['performance_level'] = 'medium';
+            } else {
+                $competition['performance_level'] = 'low';
+            }
         }
 
-        // 🔥 CRUCIAL
         $this->data['competitions_list'] = $competitions_list;
+        $this->data['userUr'] = $userUr;
+        $this->data['activeCompetitionId'] = session('activeCompetitionId');
 
-        return view(
-            'competitions/index',
-            $this->data
-        );
+        return view('competitions/index', $this->data);
     }
 
     /*

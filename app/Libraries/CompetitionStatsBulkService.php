@@ -12,6 +12,45 @@ class CompetitionStatsBulkService
     {
         $this->db = Database::connect();
     }
+    public function computeFromEAN(array $photos, int $userUr = 22): array
+    {
+        $clubs = [];
+        $participants = [];
+        $clubsUR = [];
+
+        foreach ($photos as $p) {
+
+            $ean = $p['ean'] ?? null;
+
+            if (!$ean || strlen($ean) < 10) {
+                continue;
+            }
+
+            $ur     = substr($ean, 0, 2);
+            $club   = substr($ean, 2, 4);
+            $member = substr($ean, 6, 4);
+
+            $clubKey = $ur . $club;
+            $memberKey = $clubKey . $member;
+
+            // 🔹 clubs total
+            $clubs[$clubKey] = true;
+
+            // 🔹 participants uniques
+            $participants[$memberKey] = true;
+
+            // 🔹 clubs UR utilisateur
+            if ((int)$ur === $userUr) {
+                $clubsUR[$clubKey] = true;
+            }
+        }
+
+        return [
+            'clubs_nat'        => count($clubs),
+            'participants'     => count($participants),
+            'clubs_ur'         => count($clubsUR),
+        ];
+    }
 
     public function getStatsForCompetitions(array $competitionIds): array
     {
