@@ -1,0 +1,149 @@
+    <!-- ===================================================== -->
+    <!-- 🟧 7. TOP 5 UR PAR COMPÉTITION -->
+    <!-- ===================================================== -->
+    <div class="block">
+
+        <h2>🥇 Top 5 par compétition</h2>
+
+        <?php if (!empty($topCompetitions)): ?>
+
+            <?php foreach ($topCompetitions as $comp): ?>
+
+                <h3><?= esc($comp['nom']) ?></h3>
+
+                <table class="table-dashboard">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Auteur</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <?php foreach ($comp['top5'] as $a): ?>
+                            <tr>
+                                <td><?= $a['rang'] ?></td>
+
+                                <td>
+                                    <?= esc($a['auteur_nom']) ?>
+                                    <?php if (!empty($a['member_code'])): ?>
+                                        <small>(<?= esc($a['member_code']) ?>)</small>
+                                    <?php endif; ?>
+                                </td>
+
+                                <td><strong><?= $a['points'] ?></strong></td>
+                            </tr>
+                        <?php endforeach; ?>
+
+                    </tbody>
+                </table>
+
+            <?php endforeach; ?>
+
+        <?php endif; ?>
+
+    </div>
+
+        <!-- ===================================================== -->
+    <!-- 🟪 6. CLASSEMENT TRANSVERSAL -->
+    <!-- ===================================================== -->
+    <div class="block">
+        <h2>🏆 Classement transversal UR22</h2>
+        <p>⚠️ À brancher (computeClubRanking)</p>
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- 🟧 8. TOP 5 NATIONAL -->
+    <!-- ===================================================== -->
+    <div class="block">
+        <h2>🌍 Top 5 N1 / N2 / CdF</h2>
+        <p>⚠️ À construire</p>
+    </div>
+
+
+
+
+    <!-- ===================================================== -->
+    <!-- 🟧 4. ANALYSE COMPÉTITIONS -->
+    <!-- ===================================================== -->
+    <div class="block">
+        <h2>🏆 Analyse des 9 compétitions</h2>
+        <p>⚠️ À construire</p>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 🟥 5. MATRICE UR -->
+    <!-- ===================================================== -->
+    <div class="block">
+
+        <div class="block">
+
+            <h2>🏆 Analyse des compétitions</h2>
+
+            <?php if (!empty($competitions)): ?>
+                <table class="table-dashboard">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Compétition</th>
+                            <th>Images</th>
+                            <th>Auteurs</th>
+                            <th>Auteurs UR22</th>
+                            <th>Clubs</th>
+                            <th>Clubs UR 22</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <?php foreach ($competitions as $c): ?>
+                            <tr>
+                                <td><strong><?= esc($c['type']) ?></strong></td>
+
+                                <td><?= esc($c['nom']) ?></td>
+
+                                <td><?= $c['images'] ?></td>
+                                <td><?= $c['nb_auteurs'] ?></td>
+                                <td>
+                                    <?php if ($c['type'] !== 'UR'): ?>
+                                        <?= $c['nb_auteurs_ur22'] > 0 ? '🟢' : '🔴' ?>
+                                        <?= $c['nb_auteurs_ur22'] ?>
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
+
+                                <td><?= $c['nb_clubs'] ?></td>
+
+                                <td>
+                                    <?php if ($c['type'] !== 'UR'): ?>
+                                        <?= $c['nb_clubs_ur22'] > 0 ? '🟢' : '🔴' ?>
+                                        <?= $c['nb_clubs_ur22'] ?>
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p>Aucune donnée</p>
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- 🟪 9. INDICATEURS JUGES NATIONAL -->
+    <!-- ===================================================== -->
+    <div class="block">
+        <h2>⚖️ Indicateurs Juges National</h2>
+        <p>⚠️ À construire (variance)</p>
+    </div>

@@ -128,6 +128,45 @@ $routes->get('test/zip-init', 'Home::testZip_init');
 $routes->get('test/zip-national', 'Home::testZipNational');
 $routes->get('test/import/(:num)', 'Home::importregional/$1');
 $routes->get('test/importnat/(:num)', 'Home::importnational/$1');
+
+
+/*
+|--------------------------------------------------------------------------
+| VIGNETTES - TOOLS
+|--------------------------------------------------------------------------
+*/
+
+// import batch (déjà existant)
+$routes->get('tools/generervignettes/(:num)', 'Tools\GenererVignettes::index/$1');
+
+// 🔥 regeneration complète
+$routes->get('tools/vignettes/regenerate/(:num)', 'Tools\GenererVignettes::regenerateAll/$1');
+
+// 🧩 reprise manquantes (1 compétition)
+$routes->get('tools/vignettes/resume/(:num)', 'Tools\GenererVignettes::resumeMissing/$1');
+
+// 🌍 reprise globale (toutes les compétitions)
+$routes->get('tools/vignettes/resume-all', 'Tools\GenererVignettes::resumeAllCompetitions');
+
+// 📊 scan dashboard
+$routes->get('tools/vignettes/scan', 'Tools\GenererVignettes::scanCompetitionsStatus');
+
+$routes->get('tools/vignettes/stop', function () {
+    file_put_contents(WRITEPATH . 'tmp/thumbs_control.json', json_encode([
+        'stop' => true
+    ]));
+    echo "STOP demandé";
+});
+
+
+$routes->group('dashboard', function ($routes) {
+
+    $routes->get('/', 'Dashboard::index');
+    $routes->get('synthese', 'Dashboard::synthese');
+    //$routes->get('synthese', 'Dashboard::analyse');
+});
+
+
 /*
 |--------------------------------------------------------------------------
 AUTOROUTE OFF

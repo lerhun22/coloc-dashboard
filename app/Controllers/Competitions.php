@@ -24,51 +24,75 @@ class Competitions extends BaseController
 
     public function index()
     {
-        $model = new CompetitionModel();
-
-        $this->data['competitions_list'] =
-            $model->getCompetitionsWithCount();
+        /*
+    =========================================================
+    📍 INIT
+    =========================================================
+    */
+        $model           = new \App\Models\CompetitionModel();
+        $statsService    = new \App\Services\CompetitionStatsService();
+        $nationalService = new \App\Services\NationalStatsService();
 
         $this->data['page_css'] = 'competitions.css';
 
-        $competitions_list = $this->data['competitions_list'];
+        /*
+    =========================================================
+    📦 COMPÉTITIONS
+    =========================================================
+    */
+        $competitions_list = $model->getCompetitionsWithCount();
 
-        $service = new CompetitionStatsBulkService();
+        if (empty($competitions_list)) {
+            $this->data['competitions_list'] = [];
+            return view('competitions/index', $this->data);
+        }
 
-        $ids = array_column($competitions_list, 'id');
+        /*
+    =========================================================
+    📊 STATS GLOBAL (SOURCE UNIQUE)
+    =========================================================
+    */
+        $ids      = array_column($competitions_list, 'id');
+        $allStats = $statsService->getStatsBulk($ids);
 
-        $allStats = $service->getStatsForCompetitions($ids);
-
+        /*
+    =========================================================
+    🇫🇷 PARAMÈTRE UR
+    =========================================================
+    */
         $userUr = (int)(env('copain.uruser') ?: 22);
 
+        /*
+    =========================================================
+    🔄 ENRICHISSEMENT
+    =========================================================
+    */
         foreach ($competitions_list as &$competition) {
 
-            $id = $competition['id'];
+            $id    = $competition['id'];
             $stats = $allStats[$id] ?? [];
-
-            // =========================
-            // 📊 STATS BASE
-            // =========================
-            $competition['photo_count'] = $stats['photo_count'] ?? 0;
-            $competition['club_count']  = $stats['club_count'] ?? 0;
 
             /*
         =====================================================
-        🔥 NATIONAL → recalcul EAN
+        📊 STATS DE BASE
+        =====================================================
+        */
+            $competition['photo_count']  = $stats['photo_count']  ?? 0;
+            $competition['club_count']   = $stats['club_count']   ?? 0;
+            $competition['author_count'] = $stats['author_count'] ?? 0;
+
+            /*
+        =====================================================
+        🔥 NATIONAL → SERVICE DÉDIÉ
         =====================================================
         */
             if (empty($competition['urs_id'])) {
 
-                $photos = $this->photoModel
-                    ->select('ean')
-                    ->where('competitions_id', $id)
-                    ->findAll();
+                $natStats = $nationalService->getStats($id, $userUr);
 
-                $eanStats = $service->computeFromEAN($photos, $userUr);
-
-                $competition['author_count'] = $eanStats['participants'];
-                $competition['clubs_nat']    = $eanStats['clubs_nat'];
-                $competition['clubs_ur']     = $eanStats['clubs_ur'];
+                $competition['author_count'] = $natStats['participants'];
+                $competition['clubs_nat']    = $natStats['clubs_nat'];
+                $competition['clubs_ur']     = $natStats['clubs_ur'];
             } else {
 
                 /*
@@ -76,14 +100,13 @@ class Competitions extends BaseController
             🔹 REGIONAL
             =====================================================
             */
-                $competition['author_count'] = $stats['author_count'] ?? 0;
-                $competition['clubs_nat']    = $competition['club_count'];
-                $competition['clubs_ur']     = $competition['club_count'];
+                $competition['clubs_nat'] = $competition['club_count'];
+                $competition['clubs_ur']  = $competition['club_count'];
             }
 
             /*
         =====================================================
-        🔥 PERFORMANCE (TOUJOURS DEFINIE)
+        🎯 PERFORMANCE
         =====================================================
         */
             $photos  = $competition['photo_count'];
@@ -102,12 +125,18 @@ class Competitions extends BaseController
             }
         }
 
-        $this->data['competitions_list'] = $competitions_list;
-        $this->data['userUr'] = $userUr;
+        /*
+    =========================================================
+    🎨 DATA VIEW
+    =========================================================
+    */
+        $this->data['competitions_list']   = $competitions_list;
+        $this->data['userUr']              = $userUr;
         $this->data['activeCompetitionId'] = session('activeCompetitionId');
 
         return view('competitions/index', $this->data);
     }
+
 
     /*
     ==========================

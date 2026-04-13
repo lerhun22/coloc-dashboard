@@ -33,12 +33,17 @@ if ($activeCompetition) {
         <nav class="header-nav">
 
             <a href="<?= base_url('dashboard') ?>">Accueil</a>
+            <a href="<?= base_url('dashboard/synthese') ?>">Synthèse</a> <!-- ✅ NEW -->
+
             <a href="<?= base_url('competitions') ?>">Compétitions</a>
+
             <a href="<?= $activeCompetition
                             ? base_url('competitions/' . $activeCompetition['id'] . '/photos')
-                            : '#' ?>" <?= !$activeCompetition ? 'style="opacity:0.5; pointer-events:none;"' : '' ?>>
+                            : '#' ?>"
+                <?= !$activeCompetition ? 'style="opacity:0.5; pointer-events:none;"' : '' ?>>
                 Photo
             </a>
+
             <a href="<?= base_url('jugement') ?>">Jugement</a>
             <a href="<?= base_url('export') ?>">Export</a>
             <a href="<?= base_url('suivi') ?>">Suivi</a>

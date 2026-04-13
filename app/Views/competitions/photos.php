@@ -34,6 +34,7 @@ $folder =
     $competition['numero'] . '_' .
     $competition['id'];
 
+//dd($folder, $competition);
 
 /* ============================================================
    🔎 FONCTION EAN
