@@ -130,6 +130,10 @@ $routes->get('test/import/(:num)', 'Home::importregional/$1');
 $routes->get('test/importnat/(:num)', 'Home::importnational/$1');
 
 
+$routes->get('coloc/test/(:num)', 'ColocController::test/$1');
+$routes->get('coloc/run', 'ColocController::run');
+$routes->get('coloc/debug/(:num)', 'ColocController::debug/$1');
+
 /*
 |--------------------------------------------------------------------------
 | VIGNETTES - TOOLS
@@ -163,7 +167,7 @@ $routes->group('dashboard', function ($routes) {
 
     $routes->get('/', 'Dashboard::index');
     $routes->get('synthese', 'Dashboard::synthese');
-    //$routes->get('synthese', 'Dashboard::analyse');
+    $routes->get('analyse', 'Dashboard::analyse');
 });
 
 

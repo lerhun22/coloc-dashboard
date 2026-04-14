@@ -2,119 +2,167 @@
 
 namespace App\Services;
 
-use App\Models\PhotoModel;
-use App\Models\CompetitionModel;
+use Config\Database;
 
 /**
- * =========================================================
- * ClassementService
- * =========================================================
- * Auteur : COLOC V3
- * Date : 2026-04
- * Objectif :
- * Centraliser toute la logique de classement (clubs / auteurs)
+ * ============================================================
+ * 📊 ClassementService
+ * ============================================================
+ * - Calcul des notes photos
+ * - Classement photos
+ * - Classement auteurs
+ * - Classement clubs
  *
- * ⚠️ SOURCE UNIQUE DE VÉRITÉ
- * - aucun calcul de points ailleurs
- * - aucun classement ailleurs
- *
- * =========================================================
+ * Compatible MySQL 5.x (pas de window functions)
  */
 class ClassementService
 {
-    protected PhotoModel $photoModel;
-    protected CompetitionModel $competitionModel;
+    protected $db;
 
     public function __construct()
     {
-        $this->photoModel = new PhotoModel();
-        $this->competitionModel = new CompetitionModel();
+        $this->db = Database::connect();
     }
 
     /**
-     * =========================================================
-     * computeClubRanking
-     * =========================================================
-     * Calcule le classement des clubs pour une année donnée
-     *
-     * @param int $annee
-     * @param array $options
-     *      - ur_only (bool)
-     *      - competition_type (national|regional|null)
-     *
-     * @return array
-     * =========================================================
+     * ============================================================
+     * 🚀 COMPUTE GLOBAL
+     * ============================================================
      */
-    public function computeClubRanking(int $annee): array
+    public function compute(int $cid, bool $debug = false): void
     {
-        /*
-    =========================================================
-    SOURCE UNIQUE
-    =========================================================
-    */
-        $dataProvider = new \App\Services\DataProvider();
-        $rows = $dataProvider->getAnnualData($annee);
+        if ($debug) log_message('info', "Compute START cid={$cid}");
 
-        $clubs = [];
+        $this->computePhotoTotals($cid, $debug);
+        $this->computePhotoRanking($cid, $debug);
+        $this->computeAuteurRanking($cid, $debug);
+        $this->computeClubRanking($cid, $debug);
 
-        foreach ($rows as $row) {
-
-            $clubId = $row['club_id'];
-
-            if (!isset($clubs[$clubId])) {
-                $clubs[$clubId] = [
-                    'club_id' => $clubId,
-                    'club_nom' => $row['club_nom'],
-                    'points' => 0,
-                    'images' => 0,
-                ];
-            }
-
-            $clubs[$clubId]['points'] += $row['points'];
-            $clubs[$clubId]['images']++;
-        }
-
-        return $clubs;
+        if ($debug) log_message('info', "Compute DONE cid={$cid}");
     }
 
-    public function computeClubRankingFromRows(array $rows, array $options = []): array
+    /**
+     * ============================================================
+     * 📸 TOTAL NOTES PHOTOS (SQL optimisé)
+     * ============================================================
+     */
+    private function computePhotoTotals(int $cid, bool $debug): void
     {
+        if ($debug) log_message('debug', "STEP totals");
+
+        $this->db->query("
+            UPDATE photos p
+            JOIN (
+                SELECT photos_id, SUM(note) as total
+                FROM notes
+                WHERE competitions_id = ?
+                GROUP BY photos_id
+            ) n ON n.photos_id = p.id
+            SET p.note_totale = n.total
+            WHERE p.competitions_id = ?
+        ", [$cid, $cid]);
+    }
+
+    /**
+     * ============================================================
+     * 🏆 CLASSEMENT PHOTOS (PHP → fiable + ex-aequo)
+     * ============================================================
+     */
+    private function computePhotoRanking(int $cid, bool $debug): void
+    {
+        if ($debug) log_message('debug', "STEP photos ranking");
+
+        $photos = $this->db->query("
+            SELECT id, note_totale
+            FROM photos
+            WHERE competitions_id = ?
+            ORDER BY note_totale DESC
+        ", [$cid])->getResult();
+
+        $place = 0;
+        $prev = null;
+        $pos = 0;
+
+        foreach ($photos as $p) {
+
+            $pos++;
+
+            if ($prev !== null && $p->note_totale == $prev) {
+                // même place
+            } else {
+                $place = $pos;
+            }
+
+            $this->db->query(
+                "UPDATE photos SET place = ? WHERE id = ?",
+                [$place, $p->id]
+            );
+
+            $prev = $p->note_totale;
+        }
+    }
+
+    /**
+     * ============================================================
+     * 👤 CLASSEMENT AUTEURS
+     * ============================================================
+     */
+    public function computeAuthorRankingFromRows(array $rows, array $options = []): array
+    {
+        /*
+    =========================
+    OPTIONS
+    =========================
+    */
+
         $urOnly = $options['ur_only'] ?? false;
 
-        $clubs = [];
+        /*
+    =========================
+    GROUP BY AUTEUR
+    =========================
+    */
 
-        foreach ($rows as $row) {
+        $authors = [];
 
-            if ($urOnly && !$row['is_ur22']) {
+        foreach ($rows as $r) {
+
+            // ⚠️ IMPORTANT : adapter selon ton DataProvider
+            $auteurId = $r['auteur_id'] ?? $r['participants_id'] ?? null;
+
+            if (!$auteurId) {
                 continue;
             }
 
-            $clubId = $row['club_id'];
+            // filtre UR si demandé
+            if ($urOnly && isset($r['ur']) && (int)$r['ur'] !== 22) {
+                continue;
+            }
 
-            if (!isset($clubs[$clubId])) {
-                $clubs[$clubId] = [
-                    'club_id' => $clubId,
-                    'club_nom' => $row['club_nom'],
-                    'points' => 0,
-                    'images' => 0,
-                    'auteurs' => [],
+            if (!isset($authors[$auteurId])) {
+                $authors[$auteurId] = [
+                    'auteur_id'  => $auteurId,
+                    'auteur_nom' => $r['auteur_nom'] ?? 'Auteur ' . $auteurId,
+                    'points'     => 0,
+                    'nb_images'  => 0,
                 ];
             }
 
-            $clubs[$clubId]['points'] += $row['points'];
-            $clubs[$clubId]['images']++;
+            /*
+        =========================
+        SCORE
+        =========================
+        */
 
-            $clubs[$clubId]['auteurs'][$row['auteur_id']] = true;
-        }
+            $note = $r['note_totale'] ?? 0;
+            $score = $note > 0 ? round($note / 3, 2) : 0;
 
-        /*
-    =========================
-    NORMALISATION
-    =========================
-    */
-        foreach ($clubs as &$club) {
-            $club['nb_auteurs'] = count($club['auteurs']);
-            unset($club['auteurs']);
+            if (!empty($r['disqualifie'])) {
+                $score = 0;
+            }
+
+            $authors[$auteurId]['points'] += $score;
+            $authors[$auteurId]['nb_images']++;
         }
 
         /*
@@ -122,248 +170,72 @@ class ClassementService
     TRI
     =========================
     */
-        usort($clubs, function ($a, $b) {
-            return $b['points'] <=> $a['points'];
-        });
+
+        $authors = array_values($authors);
+
+        usort($authors, fn($a, $b) => $b['points'] <=> $a['points']);
 
         /*
     =========================
     RANG
     =========================
     */
+
         $rank = 1;
-        foreach ($clubs as &$club) {
-            $club['rang'] = $rank++;
+        foreach ($authors as &$a) {
+            $a['rang'] = $rank++;
         }
 
-        return $clubs;
+        return $authors;
     }
-
-    public function computeAuthorRankingFromRows(array $rows, array $options = []): array
-    {
-        $urOnly = $options['ur_only'] ?? false;
-
-        $auteurs = [];
-
-        foreach ($rows as $row) {
-
-            /*
-        =========================================================
-        FILTRE UR
-        =========================================================
-        */
-            if ($urOnly && !$row['is_ur22']) {
-                continue;
-            }
-
-            $auteurId = $row['auteur_id'];
-
-            if (!$auteurId) {
-                continue;
-            }
-
-            /*
-        =========================================================
-        INIT
-        =========================================================
-        */
-            if (!isset($auteurs[$auteurId])) {
-                $auteurs[$auteurId] = [
-                    'auteur_id' => $auteurId,
-                    'auteur_nom' => $row['auteur_nom'],
-                    'member_code' => null,
-                    'club_nom' => null,
-                    'points' => 0,
-                    'images' => 0,
-                    'competitions' => [],
-                ];
-            }
-
-            /*
-        =========================================================
-        AGRÉGATION
-        =========================================================
-        */
-            $auteurs[$auteurId]['points'] += $row['points'];
-            $auteurs[$auteurId]['images']++;
-
-            /*
-        =========================================================
-        MEMBER CODE (EAN prioritaire, sinon participant)
-        =========================================================
-        */
-            if (empty($auteurs[$auteurId]['member_code'])) {
-
-                if (!empty($row['member_code'])) {
-                    $auteurs[$auteurId]['member_code'] = $row['member_code'];
-                } elseif (!empty($row['participant_id'])) {
-                    $auteurs[$auteurId]['member_code'] = substr($row['participant_id'], -4);
-                }
-            }
-
-            /*
-        =========================================================
-        CLUB PRINCIPAL
-        =========================================================
-        */
-            if (
-                empty($auteurs[$auteurId]['club_nom']) &&
-                !empty($row['club_nom'])
-            ) {
-                $auteurs[$auteurId]['club_nom'] = $row['club_nom'];
-            }
-
-            /*
-        =========================================================
-        COMPÉTITIONS DISTINCTES
-        =========================================================
-        */
-            if (!empty($row['competition_id'])) {
-                $auteurs[$auteurId]['competitions'][$row['competition_id']] = true;
-            }
-        }
-
-        /*
-    =========================================================
-    NORMALISATION
-    =========================================================
-    */
-        foreach ($auteurs as &$auteur) {
-            $auteur['nb_competitions'] = count($auteur['competitions']);
-            unset($auteur['competitions']);
-        }
-
-        /*
-    =========================================================
-    TRI (points desc)
-    =========================================================
-    */
-        usort($auteurs, function ($a, $b) {
-            return $b['points'] <=> $a['points'];
-        });
-
-        /*
-    =========================================================
-    RANG
-    =========================================================
-    */
-        $rank = 1;
-        foreach ($auteurs as &$auteur) {
-            $auteur['rang'] = $rank++;
-        }
-
-        return $auteurs;
-    }
-
-
-    public function computeTopByCompetition(array $rows, array $options = []): array
-    {
-        $urOnly = $options['ur_only'] ?? false;
-
-        $competitions = [];
-
-        foreach ($rows as $row) {
-
-            if ($urOnly && !$row['is_ur22']) {
-                continue;
-            }
-
-            $cid = $row['competition_id'];
-
-            if (!$cid || empty($row['auteur_id'])) {
-                continue;
-            }
-
-            /*
-        =========================================================
-        INIT COMPÉTITION
-        =========================================================
-        */
-            if (!isset($competitions[$cid])) {
-                $competitions[$cid] = [
-                    'nom' => $row['competition_nom'],
-                    'type' => $row['competition_type'], // ou mapping si besoin
-                    'auteurs' => [],
-                ];
-            }
-
-            $aid = $row['auteur_id'];
-
-            /*
-        =========================================================
-        INIT AUTEUR
-        =========================================================
-        */
-            if (!isset($competitions[$cid]['auteurs'][$aid])) {
-                $competitions[$cid]['auteurs'][$aid] = [
-                    'auteur_nom' => $row['auteur_nom'],
-                    'member_code' => $row['member_code'] ?? null,
-                    'points' => 0,
-                ];
-            }
-
-            /*
-        =========================================================
-        AGRÉGATION
-        =========================================================
-        */
-            $competitions[$cid]['auteurs'][$aid]['points'] += $row['points'];
-        }
-
-        /*
-    =========================================================
-    TRI + TOP 5
-    =========================================================
-    */
-        foreach ($competitions as &$comp) {
-
-            $auteurs = array_values($comp['auteurs']);
-
-            usort($auteurs, function ($a, $b) {
-                return $b['points'] <=> $a['points'];
-            });
-
-            $rank = 1;
-            foreach ($auteurs as &$a) {
-                $a['rang'] = $rank++;
-            }
-
-            // 🔥 TOP 5 uniquement
-            $comp['top5'] = array_slice($auteurs, 0, 5);
-
-            unset($comp['auteurs']);
-        }
-
-        return $competitions;
-    }
-
 
     /**
-     * =========================================================
-     * computePoints
-     * =========================================================
-     * 👉 FONCTION CRITIQUE
-     * 👉 À adapter selon règles FPF
-     *
-     * @param array $row
-     * @return int
-     * =========================================================
+     * ============================================================
+     * 🏢 CLASSEMENT CLUBS
+     * ============================================================
      */
-    private function computePoints(array $row): int
+    private function computeClubRanking(int $cid, bool $debug): void
     {
-        /*
-        Exemple :
-        note / classement / sélection
-        */
+        if ($debug) log_message('debug', "STEP clubs");
 
-        if (isset($row['points'])) {
-            return (int)$row['points'];
+        // reset
+        $this->db->query("DELETE FROM classementclubs WHERE competitions_id = ?", [$cid]);
+
+        // agrégation
+        $rows = $this->db->query("
+            SELECT 
+                u.clubs_id,
+                SUM(p.note_totale) as total,
+                COUNT(*) as nb_photos
+            FROM photos p
+            JOIN participants u ON p.participants_id = u.id
+            WHERE p.competitions_id = ?
+            AND u.clubs_id IS NOT NULL
+            GROUP BY u.clubs_id
+            ORDER BY total DESC
+        ", [$cid])->getResult();
+
+        $place = 0;
+        $prev = null;
+        $pos = 0;
+
+        foreach ($rows as $r) {
+
+            $pos++;
+
+            if ($prev !== null && $r->total == $prev) {
+                // ex-aequo
+            } else {
+                $place = $pos;
+            }
+
+            $this->db->query("
+                INSERT INTO classementclubs 
+                (competitions_id, clubs_id, total, place, nb_photos)
+                VALUES (?, ?, ?, ?, ?)
+            ", [$cid, $r->clubs_id, $r->total, $place, $r->nb_photos]);
+
+            $prev = $r->total;
         }
-
-        if (isset($row['note'])) {
-            return (int) round($row['note']);
-        }
-
-        return 0;
     }
 }

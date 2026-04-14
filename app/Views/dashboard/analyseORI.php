@@ -4,7 +4,6 @@
 <?php
 $targetClub = $targetClub ?? '';
 $rivalClubs = $rivalClubs ?? [];
-$isURContext = $isURContext ?? false;
 ?>
 
 <style>
@@ -45,23 +44,6 @@ $isURContext = $isURContext ?? false;
         padding: 8px;
         border-bottom: 1px solid #eee;
     }
-
-    .club-card {
-        background: #fff;
-        padding: 14px;
-        border-radius: 12px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .badge {
-        padding: 5px 8px;
-        border-radius: 6px;
-        font-size: 12px;
-        color: #fff;
-    }
 </style>
 
 <div class="main-content">
@@ -87,73 +69,73 @@ $isURContext = $isURContext ?? false;
     <!-- ========================= -->
 
     <div class="block">
-        <h2>
-            🟩 Clubs
-            <?php if ($isURContext): ?>
-                <span style="font-size:14px;color:#999;">(filtré UR)</span>
-            <?php endif; ?>
-        </h2>
+        <h2>🟩 Clubs</h2>
 
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">
-
-            <?php
-            $levels = [
-                'cdf' => ['label' => 'CdF', 'color' => '#f1c40f'],
-                'n1'  => ['label' => 'N1',  'color' => '#2980b9'],
-                'n2'  => ['label' => 'N2',  'color' => '#3498db'],
-                'r'   => ['label' => 'R',   'color' => '#8e44ad'],
-            ];
-            ?>
+        <div style="
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:15px;
+">
 
             <?php foreach (array_slice($clubsExtended, 0, 20) as $c): ?>
 
-                <div class="club-card">
+                <div style="
+    background:#fff;
+    padding:14px;
+    border-radius:12px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.05);
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+">
 
                     <!-- HEADER -->
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-
-                        <span class="badge" style="background:#2c3e50;">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <span style="background:#2c3e50;color:#fff;padding:5px 8px;border-radius:6px;">
                             #<?= $c['rang'] ?>
                         </span>
-
-                        <span class="badge" style="background:#34495e;">
+                        <span style="background:#34495e;color:#fff;padding:5px 8px;border-radius:6px;">
                             <?= esc($c['nom']) ?>
                         </span>
-
-                        <span class="badge" style="background:#7f8c8d;">
+                        <span style="background:#7f8c8d;color:#fff;padding:5px 8px;border-radius:6px;">
                             #<?= esc($c['numero']) ?>
                         </span>
-
-                        <?php if (!empty($c['wasInPreviousLevel'])): ?>
-                            <span class="badge" style="background:#27ae60;">
-                                ↑ progression
-                            </span>
-                        <?php endif; ?>
-
-                        <?php if (!empty($c['is_new'])): ?>
-                            <span class="badge" style="background:#e67e22;">
-                                NEW
-                            </span>
-                        <?php endif; ?>
-
                     </div>
 
-                    <!-- LEVELS -->
+                    <?php
+                    $levels = [
+                        'cdf' => ['label' => 'CdF', 'color' => '#f1c40f'],
+                        'n1'  => ['label' => 'N1', 'color' => '#2980b9'],
+                        'n2'  => ['label' => 'N2', 'color' => '#3498db'],
+                        'r'   => ['label' => 'R', 'color' => '#8e44ad'],
+                    ];
+                    ?>
+
                     <?php foreach ($levels as $key => $meta): ?>
-                        <?php if (!empty($c[$key]['count'])): ?>
+
+                        <?php if ($c[$key]['count'] > 0): ?>
 
                             <?php
-                            $comps = $c[$key]['competitions'] ?? [];
+                            $comps = $c[$key]['competitions'];
                             $display = array_slice($comps, 0, 3);
                             $remaining = count($comps) - 3;
                             ?>
 
                             <div style="display:flex;flex-direction:column;gap:4px;">
 
-                                <span class="badge" style="background:<?= $meta['color'] ?>">
+                                <!-- BADGE -->
+                                <span style="
+        background:<?= $meta['color'] ?>;
+        color:#fff;
+        padding:5px 8px;
+        border-radius:6px;
+        font-size:13px;
+        width:fit-content;
+    ">
                                     <?= $meta['label'] ?> : <?= $c[$key]['count'] ?>
                                 </span>
 
+                                <!-- COMPETITIONS -->
                                 <span style="font-size:12px;color:#555;">
                                     <?php foreach ($display as $index => $comp): ?>
                                         <?= esc($comp['nom']) ?> (⭐<?= $comp['points'] ?>)
@@ -161,13 +143,15 @@ $isURContext = $isURContext ?? false;
                                     <?php endforeach; ?>
 
                                     <?php if ($remaining > 0): ?>
-                                        <span style="color:#999;">+<?= $remaining ?> autres</span>
+                                        <span style="color:#999;">
+                                            +<?= $remaining ?> autres
+                                        </span>
                                     <?php endif; ?>
                                 </span>
 
+                                <!-- STATS -->
                                 <span style="font-size:12px;color:#777;">
-                                    📸 <?= $c[$key]['images'] ?? 0 ?>
-                                    • ⭐ <?= $c[$key]['points'] ?? 0 ?>
+                                    📸 <?= $c[$key]['images'] ?> • ⭐ <?= $c[$key]['points'] ?>
                                 </span>
 
                             </div>
@@ -175,23 +159,14 @@ $isURContext = $isURContext ?? false;
                         <?php endif; ?>
                     <?php endforeach; ?>
 
-                    <!-- PERFORMANCE -->
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;">
-
-                        <span class="badge" style="background:#27ae60;">
+                    <!-- TOTAL -->
+                    <div style="margin-top:5px;">
+                        <span style="background:#27ae60;color:#fff;padding:5px 8px;border-radius:6px;">
                             📸 <?= $c['total_images'] ?>
                         </span>
-
-                        <span class="badge" style="background:#f39c12;">
+                        <span style="background:#f39c12;color:#fff;padding:5px 8px;border-radius:6px;">
                             ⭐ <?= $c['total_points'] ?>
                         </span>
-
-                        <?php if (!empty($c['total_images'])): ?>
-                            <span class="badge" style="background:#16a085;">
-                                Moy <?= round($c['total_points'] / $c['total_images'], 2) ?>
-                            </span>
-                        <?php endif; ?>
-
                     </div>
 
                 </div>

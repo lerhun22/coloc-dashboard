@@ -33,7 +33,6 @@ if ($activeCompetition) {
         <nav class="header-nav">
 
             <a href="<?= base_url('dashboard') ?>">Accueil</a>
-            <a href="<?= base_url('dashboard/synthese') ?>">Synthèse</a> <!-- ✅ NEW -->
 
             <a href="<?= base_url('competitions') ?>">Compétitions</a>
 
@@ -46,6 +45,12 @@ if ($activeCompetition) {
 
             <a href="<?= base_url('jugement') ?>">Jugement</a>
             <a href="<?= base_url('export') ?>">Export</a>
+
+            <a href="<?= base_url('dashboard/synthese') ?>">National</a> <!-- ✅ NEW -->
+
+            <a href="<?= base_url('dashboard/analyse') ?>">UR</a> <!-- ✅ NEW -->
+
+
             <a href="<?= base_url('suivi') ?>">Suivi</a>
 
         </nav>

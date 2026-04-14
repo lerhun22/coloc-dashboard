@@ -1,12 +1,6 @@
 /vendor/
-writable/
+/writable/
 uploads/
-/writable/cache/
-/writable/logs/
-/writable/session/
-/writable/uploads/
-/writable/debugbar/
-/writable/logs/
 /.env
 /node_modules/
 .DS_Store

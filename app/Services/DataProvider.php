@@ -16,7 +16,8 @@ use CodeIgniter\Database\BaseConnection;
  *
  * ⚠️ RÈGLES :
  * - 1 seule requête SQL
- * - aucune logique métier (uniquement normalisation)
+ * - aucune logique métier
+ * - enrichissement uniquement
  * - compatible UR + National (EAN)
  *
  * =========================================================
@@ -33,11 +34,6 @@ class DataProvider
     /**
      * =========================================================
      * getAnnualData
-     * =========================================================
-     * Récupère toutes les données photos enrichies
-     *
-     * @param int $annee
-     * @return array
      * =========================================================
      */
     public function getAnnualData(int $annee): array
@@ -70,6 +66,7 @@ class DataProvider
 
                 cl.id AS club_id,
                 cl.nom AS club_nom,
+                cl.numero AS club_numero,
                 cl.urs_id AS club_ur
 
             FROM photos p
@@ -105,6 +102,9 @@ class DataProvider
             $row['auteur_nom'] = null;
             $row['ur'] = null;
 
+            // 🔥 nouveaux champs SAFE
+            $row['club_key'] = null;
+
             /*
             =====================================================
             CAS 1 : PARTICIPANT (UR fiable)
@@ -130,7 +130,7 @@ class DataProvider
             =====================================================
             */ else {
 
-                $ean = $row['ean'];
+                $ean = $row['ean'] ?? null;
 
                 if ($ean && preg_match('/^\d{12}$/', $ean)) {
 
@@ -151,9 +151,12 @@ class DataProvider
 
                     $row['ur'] = (int)$ur;
 
-                    // ⚠️ mapping club approximatif (national)
-                    $row['club_id'] = $club;
-                    $row['club_nom'] = 'Club #' . $club;
+                    // 🔥 IMPORTANT : on enrichit sans casser
+                    $row['club_numero'] = (int)$club;
+
+                    if (empty($row['club_nom'])) {
+                        $row['club_nom'] = 'Club #' . $club;
+                    }
 
                     $row['member_code'] = $member;
 
@@ -163,14 +166,32 @@ class DataProvider
 
             /*
             =====================================================
-            POINTS NORMALISÉS
+            NORMALISATION TYPES
             =====================================================
             */
-            $row['points'] = (int)($row['note_totale'] ?? 0);
+            $row['club_id'] = isset($row['club_id']) ? (int)$row['club_id'] : null;
+            $row['club_numero'] = isset($row['club_numero']) ? (int)$row['club_numero'] : null;
 
             /*
             =====================================================
-            FLAGS UTILES (optimisation future)
+            CLÉ UNIFIÉE CLUB (CRITIQUE)
+            =====================================================
+            */
+            $row['club_key'] =
+                $row['club_numero']
+                ?? $row['club_id']
+                ?? null;
+
+            /*
+            =====================================================
+            POINTS NORMALISÉS
+            =====================================================
+            */
+            $row['points'] = (float)($row['note_totale'] ?? 0);
+
+            /*
+            =====================================================
+            FLAGS UTILES
             =====================================================
             */
             $row['is_ur22'] = ((int)$row['ur'] === 22);

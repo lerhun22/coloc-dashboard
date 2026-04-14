@@ -6,6 +6,7 @@ use App\Services\DataProvider;
 use App\Services\SyntheseService;
 use App\Services\ClassementService;
 use App\Services\JugementService;
+use App\Services\ClubStatsService;
 
 class Dashboard extends BaseController
 {
@@ -41,39 +42,81 @@ class Dashboard extends BaseController
     📊 ANALYSE GLOBALE
     ============================================================
     */
+
+
+
+
+
+
     public function analyse()
     {
         $db = \Config\Database::connect();
 
         $annee = $this->getCurrentSeason($db);
 
-        $dataProvider = new DataProvider();
+        $dataProvider = new \App\Services\DataProvider();
         $rows = $dataProvider->getAnnualData($annee);
 
-        $synthese = new SyntheseService();
-        $classement = new ClassementService();
-        $jugementService = new JugementService();
+        $synthese = new \App\Services\SyntheseService();
+        $jugementService = new \App\Services\JugementService();
+        $clubStatsService = new \App\Services\ClubStatsService();
+        $classementService = new \App\Services\ClassementService();
 
+        /*
+    ============================================================
+    GLOBAL
+    ============================================================
+    */
         $global = $synthese->computeGlobalStats($rows);
         $competitions = $synthese->computeCompetitionStats($rows);
-
-        $clubs = $classement->computeClubRankingFromRows($rows);
-        $auteurs = $classement->computeAuthorRankingFromRows($rows);
-
+        $auteurs = $classementService->computeAuthorRankingFromRows($rows);
         $jugement = $jugementService->computeJudgeStats($annee);
 
         $national = array_filter($competitions, fn($c) => empty($c['urs_id']));
         $regional = array_filter($competitions, fn($c) => !empty($c['urs_id']));
 
+        /*
+    ============================================================
+    CLUBS UR22
+    ============================================================
+    */
+        $clubsExtended = $clubStatsService->compute($rows);
+
+        /*
+    ============================================================
+    TRI FINAL (ALIGNÉ SQL)
+    ============================================================
+    */
+        usort(
+            $clubsExtended,
+            fn($a, $b) =>
+            $b['total_points'] <=> $a['total_points']
+        );
+
+        /*
+    ============================================================
+    RANG
+    ============================================================
+    */
+        $rank = 1;
+        foreach ($clubsExtended as &$c) {
+            $c['rang'] = $rank++;
+        }
+        unset($c);
+
+        /*
+    ============================================================
+    VIEW
+    ============================================================
+    */
         return view('dashboard/analyse', [
             'annee' => $annee,
             'global' => $global,
-            'competitions' => $competitions,
             'national' => $national,
             'regional' => $regional,
-            'clubs' => $clubs,
+            'clubsExtended' => $clubsExtended,
             'auteurs' => $auteurs,
-            'jugement' => $jugement
+            'jugement' => $jugement,
         ]);
     }
 
@@ -114,6 +157,14 @@ class Dashboard extends BaseController
     ============================================================
     */
         $dataProvider = new DataProvider();
+        $clubsMap = [];
+
+        $clubsDb = $db->table('clubs')->get()->getResultArray();
+
+        foreach ($clubsDb as $club) {
+            $clubsMap[$club['id']] = $club['numero']; // <-- matricule FPF
+        }
+
         $rows = $dataProvider->getAnnualData($annee);
 
         $syntheseService = new SyntheseService();

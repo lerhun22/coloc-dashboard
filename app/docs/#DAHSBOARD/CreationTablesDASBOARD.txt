@@ -1,0 +1,170 @@
+DELIMITER $$
+
+CREATE PROCEDURE init_coloc_schema()
+BEGIN
+
+    /*
+    ============================================================
+    COMPETITIONS_ENRICHED
+    ============================================================
+    */
+    CREATE TABLE IF NOT EXISTS competitions_enriched (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+
+        competition_id INT NOT NULL,
+        saison INT NOT NULL,
+
+        level VARCHAR(10) NOT NULL,
+        discipline VARCHAR(50) NOT NULL,
+        support VARCHAR(20) NOT NULL,
+        access_type VARCHAR(30) NOT NULL,
+        participants_type VARCHAR(20) NOT NULL,
+        has_progression BOOLEAN DEFAULT TRUE,
+
+        photos_retained INT,
+        photos_max INT,
+        promotion_limit INT,
+        relegation_limit INT,
+
+        source_label TEXT,
+        normalized_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+        UNIQUE KEY uniq_competition (competition_id, saison),
+        INDEX idx_level (level),
+        INDEX idx_access (access_type)
+    );
+
+    /*
+    ============================================================
+    CLUB_RANKINGS
+    ============================================================
+    */
+    CREATE TABLE IF NOT EXISTS club_rankings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+
+        competition_id INT NOT NULL,
+        saison INT NOT NULL,
+        club_id INT NOT NULL,
+
+        club_name VARCHAR(255),
+
+        score INT NOT NULL,
+        rank INT NOT NULL,
+        status VARCHAR(20) NOT NULL,
+
+        nb_photos INT DEFAULT 0,
+        nb_acceptations INT DEFAULT 0,
+        nb_20 INT DEFAULT 0,
+        nb_19 INT DEFAULT 0,
+
+        tie_break_used BOOLEAN DEFAULT FALSE,
+
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+        UNIQUE KEY uniq_club_comp (competition_id, club_id),
+        INDEX idx_rank (rank),
+        INDEX idx_status (status),
+        INDEX idx_club (club_id)
+    );
+
+    /*
+    ============================================================
+    COMPETITION_METRICS
+    ============================================================
+    */
+    CREATE TABLE IF NOT EXISTS competition_metrics (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+
+        competition_id INT NOT NULL,
+        saison INT NOT NULL,
+
+        nb_clubs INT,
+        nb_photos INT,
+
+        avg_score FLOAT,
+        std_deviation FLOAT,
+
+        avg_score_per_judge FLOAT,
+        jury_variance FLOAT,
+
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+        UNIQUE KEY uniq_comp_metrics (competition_id, saison)
+    );
+
+    /*
+    ============================================================
+    CLUB_METRICS
+    ============================================================
+    */
+    CREATE TABLE IF NOT EXISTS club_metrics (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+
+        club_id INT NOT NULL,
+        saison INT NOT NULL,
+
+        total_score INT,
+        avg_score FLOAT,
+        avg_rank FLOAT,
+
+        delta_rank INT,
+        progression BOOLEAN,
+
+        nb_competitions INT,
+        nb_montées INT,
+        nb_descentes INT,
+
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+        UNIQUE KEY uniq_club_saison (club_id, saison),
+        INDEX idx_progression (progression)
+    );
+
+    /*
+    ============================================================
+    IMPORT_LOGS
+    ============================================================
+    */
+    CREATE TABLE IF NOT EXISTS import_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+
+        competition_id INT,
+        saison INT,
+
+        file_name VARCHAR(255),
+        imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+        nb_records INT,
+        status VARCHAR(20),
+        message TEXT
+    );
+
+END$$
+
+DELIMITER ;
+
+##################
+
+CALL init_coloc_schema();
+
+###################
+
+Crée un service 
+
+class ColocSetupService
+{
+    public function install()
+    {
+        $db = \Config\Database::connect();
+        $db->query("CALL init_coloc_schema()");
+    }
+}
+
+###################
+
+CREATE PROCEDURE reset_coloc_data()
+BEGIN
+    DELETE FROM club_rankings;
+    DELETE FROM competition_metrics;
+    DELETE FROM club_metrics;
+END;

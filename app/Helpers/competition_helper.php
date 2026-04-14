@@ -2,34 +2,40 @@
 
 /**
  * ============================================================
- * 📦 HELPER : Competition Helper
+ * 📦 HELPER : Competition Helper (COLOC v2)
  * ============================================================
  *
  * 📅 Date        : 2026-04
- * 👤 Auteur      : (à compléter)
- * 📍 Localisation : app/Helpers/competition_helper.php
  * 🧱 Architecture : CodeIgniter 4
  *
  * ============================================================
  * 🎯 OBJECTIFS
  * ============================================================
  *
- * Centraliser la génération des chemins et URLs des compétitions
+ * ✔ Gestion chemins / fichiers (legacy sécurisé)
+ * ✔ Helpers affichage dashboard
+ * ✔ Compatibilité ancien système
  *
- * ✔ Génère les paths relatifs (uploads/...)
- * ✔ Génère les URLs complètes (base_url)
- * ✔ Évite les erreurs type /public/public
+ * ⚠️ IMPORTANT
+ * - Aucune logique métier FPF ici
+ * - Utiliser CompetitionNormalizer pour ça
  *
  * ============================================================
  */
 
 
 /**
- * Retourne le code dossier d'une compétition
+ * ============================================================
+ * 📁 DOSSIERS & FICHIERS
+ * ============================================================
+ */
+
+/**
+ * Code dossier compétition
  */
 function competition_code($c): string
 {
-    $c = (array) $c; // 🔥 AJOUT CRITIQUE
+    $c = (array) $c;
 
     if (empty($c['id']) || empty($c['saison'])) {
         throw new \Exception("Competition invalide");
@@ -37,7 +43,7 @@ function competition_code($c): string
 
     $saison = $c['saison'];
     $id     = $c['id'];
-    $numero = str_pad((string)$c['numero'] ?? 0, 4, '0', STR_PAD_LEFT);
+    $numero = str_pad((string)($c['numero'] ?? 0), 4, '0', STR_PAD_LEFT);
 
     if (empty($c['urs_id'])) {
         return "{$saison}_N_{$id}_00_{$numero}";
@@ -50,7 +56,7 @@ function competition_code($c): string
 
 
 /**
- * Retourne le path relatif (uploads/...)
+ * Path relatif photos
  */
 function competition_photos_path(array $c): string
 {
@@ -59,7 +65,7 @@ function competition_photos_path(array $c): string
 
 
 /**
- * Retourne l'URL complète d'une photo
+ * URL complète photo
  */
 function competition_photo_url(array $c, string $ean): string
 {
@@ -68,16 +74,24 @@ function competition_photo_url(array $c, string $ean): string
     );
 }
 
+
+/**
+ * Dossier compétition (legacy)
+ */
 function competition_folder(array $competition): string
 {
     return
         $competition['saison'] . '_' .
         $competition['type'] . '_' .
         $competition['id'] . '_' .
-        str_pad((string)$competition['urs_id'], 2, '0', STR_PAD_LEFT) . '_' .
-        str_pad((string)$competition['numero'], 4, '0', STR_PAD_LEFT);
+        str_pad((string)($competition['urs_id'] ?? 0), 2, '0', STR_PAD_LEFT) . '_' .
+        str_pad((string)($competition['numero'] ?? 0), 4, '0', STR_PAD_LEFT);
 }
 
+
+/**
+ * Type label (legacy)
+ */
 function competition_type_label($type): string
 {
     return match ((int)$type) {
@@ -85,4 +99,157 @@ function competition_type_label($type): string
         2 => 'N',
         default => 'X'
     };
+}
+
+
+///////////////////////////////////////////////////////////////
+/**
+ * ============================================================
+ * 🎯 NORMALISATION LEGACY (DEBUG UNIQUEMENT)
+ * ============================================================
+ *
+ * ⚠️ NE PAS utiliser pour logique métier
+ * Utilisé uniquement pour debug ou fallback
+ * ============================================================
+ */
+///////////////////////////////////////////////////////////////
+
+function competition_normalize(?string $name): ?string
+{
+    if (!$name) return null;
+
+    $name = mb_strtolower($name);
+    $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name);
+
+    // exclusions
+    foreach (['defi', 'interne', 'test', 'deverminage'] as $bad) {
+        if (str_contains($name, $bad)) {
+            return null;
+        }
+    }
+
+    $type = match (true) {
+        str_contains($name, 'national 1'), str_contains($name, 'n1') => 'N1',
+        str_contains($name, 'national 2'), str_contains($name, 'n2') => 'N2',
+        str_contains($name, 'coupe'), str_contains($name, 'cdf') => 'COUPE',
+        default => 'REGIONAL',
+    };
+
+    $cat = match (true) {
+        str_contains($name, 'couleur') => 'COULEUR',
+        str_contains($name, 'mono'), str_contains($name, 'noir') => 'MONOCHROME',
+        str_contains($name, 'nature') => 'NATURE',
+        str_contains($name, 'auteur') => 'AUTEUR',
+        str_contains($name, 'audiovisuel') => 'AUDIOVISUEL',
+        str_contains($name, 'quadri') => 'QUADRIMAGE',
+        default => null,
+    };
+
+    if (!$cat) return null;
+
+    return "{$type} {$cat}";
+}
+
+
+///////////////////////////////////////////////////////////////
+/**
+ * ============================================================
+ * 📊 DASHBOARD HELPERS (NOUVEAU)
+ * ============================================================
+ */
+///////////////////////////////////////////////////////////////
+
+/**
+ * Label niveau lisible
+ */
+function comp_level_label(string $level): string
+{
+    return match ($level) {
+        'COUPE' => 'Coupe de France',
+        'N1' => 'National 1',
+        'N2' => 'National 2',
+        'REGIONAL' => 'Régional',
+        default => 'Autre'
+    };
+}
+
+
+/**
+ * Badge niveau
+ */
+function comp_level_badge(string $level): string
+{
+    return match ($level) {
+        'COUPE' => '<span class="badge bg-danger">Coupe</span>',
+        'N1' => '<span class="badge bg-warning">N1</span>',
+        'N2' => '<span class="badge bg-info">N2</span>',
+        'REGIONAL' => '<span class="badge bg-secondary">Régional</span>',
+        default => '<span class="badge bg-dark">?</span>'
+    };
+}
+
+
+/**
+ * Badge statut club
+ */
+function comp_status_badge(string $status): string
+{
+    return match ($status) {
+        'promoted' => '<span class="badge bg-success">↑ Montée</span>',
+        'maintained' => '<span class="badge bg-primary">→ Maintien</span>',
+        'relegated' => '<span class="badge bg-danger">↓ Descente</span>',
+        default => '<span class="badge bg-secondary">-</span>'
+    };
+}
+
+
+/**
+ * Classe CSS ligne tableau
+ */
+function comp_row_class(string $status): string
+{
+    return match ($status) {
+        'promoted' => 'table-success',
+        'relegated' => 'table-danger',
+        default => ''
+    };
+}
+
+
+/**
+ * Icône rapide
+ */
+function comp_status_icon(string $status): string
+{
+    return match ($status) {
+        'promoted' => '🚀',
+        'maintained' => '➖',
+        'relegated' => '⚠️',
+        default => ''
+    };
+}
+
+
+/**
+ * Debug rapide compétition enrichie
+ */
+function competition_debug_label(object $c): string
+{
+    return ($c->level ?? '?') . ' ' .
+        ($c->discipline ?? '?') . ' (' .
+        ($c->support ?? '?') . ')';
+}
+
+
+/**
+ * Vérification type
+ */
+function comp_is_national(string $level): bool
+{
+    return in_array($level, ['N1', 'COUPE']);
+}
+
+function comp_is_regional(string $level): bool
+{
+    return $level === 'REGIONAL';
 }
