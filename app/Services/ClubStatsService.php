@@ -82,6 +82,17 @@ class ClubStatsService
         }
         unset($club);
 
+        /*
+============================================================
+👤 CALCUL NB AUTEURS
+============================================================
+*/
+        foreach ($clubs as &$club) {
+            $club['nb_auteurs'] = count($club['auteurs'] ?? []);
+            unset($club['auteurs']); // clean
+        }
+        unset($club);
+
         return array_values($clubs);
     }
 
@@ -154,6 +165,9 @@ class ClubStatsService
 
             'total_images' => 0,
             'total_points' => 0,
+
+            // 🔥 AJOUT
+            'auteurs' => []
         ];
     }
 
@@ -204,5 +218,17 @@ class ClubStatsService
 
         $club['total_images']++;
         $club['total_points'] += $points;
+
+        /*
+    =====================================================
+    👤 AUTEURS (clé unique)
+    =====================================================
+    */
+
+        $auteurId = $r['auteur_id'] ?? null;
+
+        if ($auteurId) {
+            $club['auteurs'][$auteurId] = true;
+        }
     }
 }

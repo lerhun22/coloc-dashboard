@@ -6,7 +6,11 @@ use App\Services\DataProvider;
 use App\Services\SyntheseService;
 use App\Services\ClassementService;
 use App\Services\JugementService;
-use App\Services\ClubStatsService;
+use App\Services\DataPipelineService;
+use App\Services\DashboardURService;
+use App\Services\SeasonService;
+use App\Services\CompetitionStatsService;
+use App\Services\DataProviderClubs;
 
 class Dashboard extends BaseController
 {
@@ -22,6 +26,8 @@ class Dashboard extends BaseController
         $app_config = file_exists($configPath)
             ? parse_ini_file($configPath)
             : [];
+
+        $builder = new \App\Services\CompetitionMetaBuilder();
 
         $data = array_merge($this->data, [
             'current_version'      => $app_config['version-no'] ?? '',
@@ -43,8 +49,96 @@ class Dashboard extends BaseController
     ============================================================
     */
 
+    public function coloc()
+    {
+        $db = \Config\Database::connect();
 
+        /*
+    ============================================================
+    📅 SAISON
+    ============================================================
+    */
+        $seasonService = new \App\Services\SeasonService();
+        $annee = $seasonService->getCurrentSeason($db);
 
+        /*
+    ============================================================
+    📊 DATA CLUBS (classementclubs)
+    ============================================================
+    */
+        $provider = new \App\Services\DataProviderClubs();
+        $rows = $provider->getAnnualData($annee);
+
+        /*
+    ============================================================
+    🧠 DASHBOARD UR22
+    ============================================================
+    */
+        $dashboardService = new \App\Services\DashboardURService();
+        $dashboard = $dashboardService->build($rows, 22);
+
+        /*
+    ============================================================
+    🏆 CLASSEMENT NATIONAL OFFICIEL (🔥 clé)
+    ============================================================
+    */
+        $nationalService = new \App\Services\NationalDashboardService();
+        $national = $nationalService->getRanking($annee);
+
+        /*
+    ============================================================
+    📊 TOTAL CLUBS FPF (base complète)
+    ============================================================
+    */
+        $totalClubs = $db->table('clubs')->countAllResults();
+
+        /*
+    ============================================================
+    🧠 SYNTHÈSE JUGEMENT
+    ============================================================
+    */
+        $jugementService = new \App\Services\JugementService();
+        $jugement = $jugementService->computeJudgeStats($annee, []);
+
+        /*
+    ============================================================
+    ✨ WOW (images fortes)
+    ============================================================
+    */
+        $allImages = $jugement['all'] ?? [];
+
+        usort($allImages, fn($a, $b) => ($b['moyenne'] ?? 0) <=> ($a['moyenne'] ?? 0));
+
+        $wow = array_slice(
+            array_filter($allImages, fn($img) => ($img['moyenne'] ?? 0) >= 16),
+            0,
+            60
+        );
+
+        /*
+    ============================================================
+    📦 VIEW
+    ============================================================
+    */
+        return view('dashboard/coloc', [
+            'annee'       => $annee,
+
+            // 🔵 NATIONAL OFFICIEL
+            'national'    => $national,
+
+            // 🟢 UR22 + ANALYSE
+            'dashboard'   => $dashboard,
+
+            // 📊 CONTEXTE GLOBAL
+            'totalClubs'  => $totalClubs,
+
+            // 🔴 SYNTHÈSE
+            'jugement'    => $jugement,
+
+            // ✨ WOW
+            'wow'         => $wow,
+        ]);
+    }
 
 
 
@@ -52,73 +146,72 @@ class Dashboard extends BaseController
     {
         $db = \Config\Database::connect();
 
-        $annee = $this->getCurrentSeason($db);
+        $seasonService = new \App\Services\SeasonService();
+        $annee = $seasonService->getCurrentSeason($db);
 
-        $dataProvider = new \App\Services\DataProvider();
-        $rows = $dataProvider->getAnnualData($annee);
+        // 🔥 NOUVEAU provider fiable
+        $provider = new \App\Services\DataProviderClubs();
+        $rows = $provider->getAnnualData($annee);
 
-        $synthese = new \App\Services\SyntheseService();
-        $jugementService = new \App\Services\JugementService();
-        $clubStatsService = new \App\Services\ClubStatsService();
-        $classementService = new \App\Services\ClassementService();
+        $service = new \App\Services\CompetitionStatsService();
+        $result = $service->compute($rows);
 
-        /*
-    ============================================================
-    GLOBAL
-    ============================================================
-    */
-        $global = $synthese->computeGlobalStats($rows);
-        $competitions = $synthese->computeCompetitionStats($rows);
-        $auteurs = $classementService->computeAuthorRankingFromRows($rows);
-        $jugement = $jugementService->computeJudgeStats($annee);
+        $nationalService = new \App\Services\NationalDashboardService();
 
-        $national = array_filter($competitions, fn($c) => empty($c['urs_id']));
-        $regional = array_filter($competitions, fn($c) => !empty($c['urs_id']));
+        $national = $nationalService->getRanking($annee);
 
-        /*
-    ============================================================
-    CLUBS UR22
-    ============================================================
-    */
-        $clubsExtended = $clubStatsService->compute($rows);
-
-        /*
-    ============================================================
-    TRI FINAL (ALIGNÉ SQL)
-    ============================================================
-    */
-        usort(
-            $clubsExtended,
-            fn($a, $b) =>
-            $b['total_points'] <=> $a['total_points']
-        );
-
-        /*
-    ============================================================
-    RANG
-    ============================================================
-    */
-        $rank = 1;
-        foreach ($clubsExtended as &$c) {
-            $c['rang'] = $rank++;
-        }
-        unset($c);
-
-        /*
-    ============================================================
-    VIEW
-    ============================================================
-    */
         return view('dashboard/analyse', [
-            'annee' => $annee,
-            'global' => $global,
+            'regional_by_comp' => $result['regional_by_comp'],
             'national' => $national,
-            'regional' => $regional,
-            'clubsExtended' => $clubsExtended,
-            'auteurs' => $auteurs,
-            'jugement' => $jugement,
+            'debug'  => $result['debug'],
         ]);
     }
+
+    public function export()
+    {
+        $annee = $this->getCurrentSeason(\Config\Database::connect());
+
+        $pipeline = new DataPipelineService();
+        $rows = $pipeline->getRowsClean($annee);
+
+        $dashboard = new DashboardURService();
+        $data = $dashboard->build($rows);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // ONGLET 1
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Clubs');
+
+        $sheet->fromArray(['Rang', 'Club', 'Points'], NULL, 'A1');
+
+        $r = 2;
+        foreach ($data['classementClubs'] as $c) {
+            $sheet->fromArray([$c['rang'] ?? '', $c['nom'], $c['points']], NULL, "A$r");
+            $r++;
+        }
+
+        // ONGLET 2
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('UR');
+
+        $sheet2->fromArray(['UR', 'Points', 'Clubs'], NULL, 'A1');
+
+        $r = 2;
+        foreach ($data['urRanking'] as $u) {
+            $sheet2->fromArray([$u['ur'], $u['points'], $u['clubs']], NULL, "A$r");
+            $r++;
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="dashboard.xlsx"');
+
+        $writer->save('php://output');
+        exit;
+    }
+
 
     /*
     ============================================================
@@ -310,6 +403,44 @@ class Dashboard extends BaseController
             'wowUR22' => $wowUR22,
         ]);
     }
+
+    public function rebuildAll()
+    {
+        $db = \Config\Database::connect();
+
+        $competitions = $db->table('competitions')
+            ->select('id')
+            ->get()
+            ->getResultArray();
+
+        $service = new \App\Services\NationalStatsService();
+
+        $count = 0;
+
+        foreach ($competitions as $c) {
+            $service->rebuildClassementClubs((int)$c['id']);
+            $count++;
+        }
+
+        return $this->response->setJSON([
+            'status' => 'ok',
+            'competitions' => $count
+        ]);
+    }
+
+
+    public function rebuild($competitionId)
+    {
+        $service = new \App\Services\NationalStatsService();
+
+        $result = $service->rebuildClassementClubs((int)$competitionId);
+
+        return $this->response->setJSON([
+            'status' => 'ok',
+            'clubs' => count($result),
+        ]);
+    }
+
 
     /*
     ============================================================

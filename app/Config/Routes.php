@@ -168,6 +168,9 @@ $routes->group('dashboard', function ($routes) {
     $routes->get('/', 'Dashboard::index');
     $routes->get('synthese', 'Dashboard::synthese');
     $routes->get('analyse', 'Dashboard::analyse');
+    $routes->get('rebuild/(:num)', 'Dashboard::rebuild/$1');
+    $routes->get('rebuild-all', 'Dashboard::rebuildAll');
+    $routes->get('coloc', 'Dashboard::coloc');
 });
 
 

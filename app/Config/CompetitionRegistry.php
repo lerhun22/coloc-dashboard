@@ -159,4 +159,137 @@ class CompetitionRegistry extends BaseConfig
             'formula' => '(total_photos / total_clubs) * region_clubs'
         ]
     ];
+
+    /**
+     * ============================================================
+     * SCORING RULES (COLOC ENGINE)
+     * ============================================================
+     */
+    public array $scoring = [
+
+        // 🔹 granularité des données
+        'unit' => 'participation', // participation = image + competition
+
+        // 🔹 clé unique métier
+        'dedup_key' => ['ean', 'competition_id'],
+
+        // 🔹 gestion des doublons
+        'dedup_strategy' => 'max_points', // ou 'first', 'sum'
+
+        // 🔹 calcul des points
+        'points' => [
+            'source' => 'note_totale',
+            'normalization' => 'divide_by_judges',
+            'judges_default' => 3,
+        ],
+
+        // 🔹 stratégie de cumul
+        'aggregation' => [
+            'mode' => 'cumulative', // 🔥 VALIDÉ
+            'group_by' => 'club',
+        ],
+
+        // 🔹 source UR fiable
+        'ur_source' => 'participant',
+
+        // 🔹 exclusions
+        'filters' => [
+            'exclude_disqualified' => true,
+            'exclude_zero' => false,
+        ],
+    ];
+
+    public array $business = [
+
+        /*
+    ============================================================
+    UNITÉ DE CALCUL
+    ============================================================
+    */
+        'unit' => 'participation', // image + compétition
+
+        /*
+    ============================================================
+    PARTICIPANTS
+    ============================================================
+    */
+        'participants' => [
+
+            // 🔥 clé métier que tu viens de découvrir
+            'club_only' => true,
+
+            // règle explicite
+            'exclude_individual' => true,
+
+            // définition technique
+            'individual_condition' => [
+                'club_id' => 0
+            ],
+        ],
+
+        /*
+    ============================================================
+    IDENTITÉ CLUB
+    ============================================================
+    */
+        'club' => [
+            'source' => 'clubs_table',
+            'id_field' => 'club_id',
+            'label_field' => 'club_nom',
+
+            // sécurité
+            'exclude_invalid' => true,
+        ],
+
+        /*
+    ============================================================
+    POINTS
+    ============================================================
+    */
+        'points' => [
+            'source' => 'note_totale',
+            'normalize' => true,
+            'judges' => 3,
+        ],
+
+        /*
+    ============================================================
+    DÉDUPLICATION
+    ============================================================
+    */
+        'dedup' => [
+            'key' => ['ean', 'competition_id'],
+            'strategy' => 'max',
+        ],
+
+        /*
+    ============================================================
+    AGRÉGATION
+    ============================================================
+    */
+        'aggregation' => [
+            'mode' => 'cumulative',
+            'group_by' => 'club',
+        ],
+
+        /*
+    ============================================================
+    UR
+    ============================================================
+    */
+        'ur' => [
+            'source_priority' => ['club', 'participant'],
+            'field' => 'ur',
+        ],
+
+        /*
+    ============================================================
+    FILTRES
+    ============================================================
+    */
+        'filters' => [
+            'exclude_disqualified' => true,
+            'require_club' => true,
+        ],
+    ];
 }

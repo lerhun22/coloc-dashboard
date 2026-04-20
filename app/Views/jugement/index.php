@@ -138,8 +138,10 @@
 
         <!-- PHOTO -->
         <div class="jugement-photo">
-
             <?php if (!empty($photo)): ?>
+
+
+
                 <img
                     src="<?= $photosUrl . '/' . $photo['ean'] . '.jpg' ?>"
                     class="photo-juge"

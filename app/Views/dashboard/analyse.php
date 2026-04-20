@@ -1,231 +1,155 @@
-<?= $this->extend('layout/default') ?>
-<?= $this->section('content') ?>
+<!DOCTYPE html>
+<html lang="fr">
 
-<?php
-$targetClub = $targetClub ?? '';
-$rivalClubs = $rivalClubs ?? [];
-$isURContext = $isURContext ?? false;
-?>
+<head>
+    <meta charset="UTF-8">
+    <title>Analyse Clubs</title>
 
-<style>
-    .block {
-        margin-bottom: 40px
-    }
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f7fa;
+        }
 
-    h2 {
-        border-left: 5px solid #3498db;
-        padding-left: 10px;
-    }
+        h2 {
+            margin-top: 40px;
+        }
 
-    .card-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 15px;
-    }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+            background: #fff;
+        }
 
-    .card {
-        background: #fff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
+        th,
+        td {
+            padding: 8px 10px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
 
-    .table {
-        width: 100%;
-        border-collapse: collapse;
-    }
+        th {
+            background: #2c3e50;
+            color: white;
+        }
 
-    .table th {
-        background: #2c3e50;
-        color: white;
-        padding: 8px;
-    }
+        tr:nth-child(even) {
+            background: #f2f2f2;
+        }
 
-    .table td {
-        padding: 8px;
-        border-bottom: 1px solid #eee;
-    }
+        .left {
+            text-align: left;
+        }
 
-    .club-card {
-        background: #fff;
-        padding: 14px;
-        border-radius: 12px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
+        .highlight {
+            font-weight: bold;
+            color: #2c3e50;
+        }
 
-    .badge {
-        padding: 5px 8px;
-        border-radius: 6px;
-        font-size: 12px;
-        color: #fff;
-    }
-</style>
+        .section {
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
 
-<div class="main-content">
+        .debug {
+            background: #111;
+            color: #0f0;
+            padding: 10px;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
 
-    <h1>📊 Analyse complète - <?= $annee ?></h1>
+<body>
 
-    <!-- ========================= -->
-    <!-- GLOBAL -->
-    <!-- ========================= -->
-    <div class="block">
-        <h2>🟦 Indicateurs globaux</h2>
-
-        <div class="card-grid">
-            <div class="card">Clubs<br><strong><?= $global['nb_clubs'] ?></strong></div>
-            <div class="card">Auteurs<br><strong><?= $global['nb_auteurs'] ?></strong></div>
-            <div class="card">Images<br><strong><?= $global['nb_images'] ?></strong></div>
-            <div class="card">Moyenne<br><strong><?= round($global['moyenne'], 2) ?></strong></div>
-        </div>
-    </div>
+    <h1>📊 Analyse Clubs</h1>
 
     <!-- ========================= -->
-    <!-- CLUBS -->
+    <!-- 🟢 CLASSEMENT REGIONAL -->
     <!-- ========================= -->
+    <div class="section">
 
-    <div class="block">
-        <h2>
-            🟩 Clubs
-            <?php if ($isURContext): ?>
-                <span style="font-size:14px;color:#999;">(filtré UR)</span>
-            <?php endif; ?>
-        </h2>
 
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">
+        <h2>🟢 Régional par compétition</h2>
 
-            <?php
-            $levels = [
-                'cdf' => ['label' => 'CdF', 'color' => '#f1c40f'],
-                'n1'  => ['label' => 'N1',  'color' => '#2980b9'],
-                'n2'  => ['label' => 'N2',  'color' => '#3498db'],
-                'r'   => ['label' => 'R',   'color' => '#8e44ad'],
-            ];
-            ?>
+        <?php foreach ($regional_by_comp as $comp => $clubs): ?>
 
-            <?php foreach (array_slice($clubsExtended, 0, 20) as $c): ?>
+            <h3><?= esc($comp) ?></h3>
 
-                <div class="club-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Club</th>
+                        <th>Points</th>
+                    </tr>
+                </thead>
+                <tbody>
 
-                    <!-- HEADER -->
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-
-                        <span class="badge" style="background:#2c3e50;">
-                            #<?= $c['rang'] ?>
-                        </span>
-
-                        <span class="badge" style="background:#34495e;">
-                            <?= esc($c['nom']) ?>
-                        </span>
-
-                        <span class="badge" style="background:#7f8c8d;">
-                            #<?= esc($c['numero']) ?>
-                        </span>
-
-                        <?php if (!empty($c['wasInPreviousLevel'])): ?>
-                            <span class="badge" style="background:#27ae60;">
-                                ↑ progression
-                            </span>
-                        <?php endif; ?>
-
-                        <?php if (!empty($c['is_new'])): ?>
-                            <span class="badge" style="background:#e67e22;">
-                                NEW
-                            </span>
-                        <?php endif; ?>
-
-                    </div>
-
-                    <!-- LEVELS -->
-                    <?php foreach ($levels as $key => $meta): ?>
-                        <?php if (!empty($c[$key]['count'])): ?>
-
-                            <?php
-                            $comps = $c[$key]['competitions'] ?? [];
-                            $display = array_slice($comps, 0, 3);
-                            $remaining = count($comps) - 3;
-                            ?>
-
-                            <div style="display:flex;flex-direction:column;gap:4px;">
-
-                                <span class="badge" style="background:<?= $meta['color'] ?>">
-                                    <?= $meta['label'] ?> : <?= $c[$key]['count'] ?>
-                                </span>
-
-                                <span style="font-size:12px;color:#555;">
-                                    <?php foreach ($display as $index => $comp): ?>
-                                        <?= esc($comp['nom']) ?> (⭐<?= $comp['points'] ?>)
-                                        <?= $index < count($display) - 1 ? ', ' : '' ?>
-                                    <?php endforeach; ?>
-
-                                    <?php if ($remaining > 0): ?>
-                                        <span style="color:#999;">+<?= $remaining ?> autres</span>
-                                    <?php endif; ?>
-                                </span>
-
-                                <span style="font-size:12px;color:#777;">
-                                    📸 <?= $c[$key]['images'] ?? 0 ?>
-                                    • ⭐ <?= $c[$key]['points'] ?? 0 ?>
-                                </span>
-
-                            </div>
-
-                        <?php endif; ?>
+                    <?php foreach ($clubs as $c): ?>
+                        <tr>
+                            <td><?= $c['rank'] ?></td>
+                            <td><?= esc($c['club_nom']) ?></td>
+                            <td><?= number_format($c['points'], 0, ',', ' ') ?></td>
+                        </tr>
                     <?php endforeach; ?>
 
-                    <!-- PERFORMANCE -->
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;">
+                </tbody>
+            </table>
 
-                        <span class="badge" style="background:#27ae60;">
-                            📸 <?= $c['total_images'] ?>
-                        </span>
+        <?php endforeach; ?>
 
-                        <span class="badge" style="background:#f39c12;">
-                            ⭐ <?= $c['total_points'] ?>
-                        </span>
+        <h2>🔵 Classement National</h2>
 
-                        <?php if (!empty($c['total_images'])): ?>
-                            <span class="badge" style="background:#16a085;">
-                                Moy <?= round($c['total_points'] / $c['total_images'], 2) ?>
-                            </span>
-                        <?php endif; ?>
-
-                    </div>
-
-                </div>
-
-            <?php endforeach; ?>
-
-        </div>
-    </div>
-
-    <!-- ========================= -->
-    <!-- AUTEURS -->
-    <!-- ========================= -->
-
-    <div class="block">
-        <h2>🟨 Auteurs</h2>
-
-        <table class="table">
-            <tr>
-                <th>#</th>
-                <th>Auteur</th>
-                <th>Points</th>
-            </tr>
-
-            <?php foreach (array_slice($auteurs, 0, 20) as $a): ?>
+        <table>
+            <thead>
                 <tr>
-                    <td><?= $a['rang'] ?></td>
-                    <td><?= esc($a['auteur_nom']) ?></td>
-                    <td><?= $a['points'] ?></td>
+                    <th>#</th>
+                    <th>Club</th>
+                    <th>UR</th>
+                    <th>N2</th>
+                    <th>N1</th>
+                    <th>CDF</th>
+                    <th>Total</th>
                 </tr>
-            <?php endforeach; ?>
+            </thead>
+            <tbody>
 
+                <?php foreach ($national as $c): ?>
+                    <tr>
+                        <td><?= $c['rank'] ?></td>
+                        <td><?= esc($c['club_nom']) ?></td>
+                        <td><?= $c['ur'] ?></td>
+                        <td><?= number_format($c['N2'], 0, ',', ' ') ?></td>
+                        <td><?= number_format($c['N1'], 0, ',', ' ') ?></td>
+                        <td><?= number_format($c['CDF'], 0, ',', ' ') ?></td>
+                        <td><strong><?= number_format($c['total'], 0, ',', ' ') ?></strong></td>
+                    </tr>
+                <?php endforeach; ?>
+
+            </tbody>
         </table>
-    </div>
 
-</div>
 
-<?= $this->endSection() ?>
+
+        <!-- ========================= -->
+        <!-- 🧪 DEBUG -->
+        <!-- ========================= -->
+        <?php if (!empty($debug)): ?>
+            <div class="section">
+                <h2>🧪 Debug</h2>
+                <div class="debug">
+                    <pre><?= print_r($debug, true) ?></pre>
+                </div>
+            </div>
+        <?php endif; ?>
+
+</body>
+
+</html>

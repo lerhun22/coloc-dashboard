@@ -46,10 +46,7 @@ if ($activeCompetition) {
             <a href="<?= base_url('jugement') ?>">Jugement</a>
             <a href="<?= base_url('export') ?>">Export</a>
 
-            <a href="<?= base_url('dashboard/synthese') ?>">National</a> <!-- ✅ NEW -->
-
-            <a href="<?= base_url('dashboard/analyse') ?>">UR</a> <!-- ✅ NEW -->
-
+            <a href="<?= base_url('dashboard/coloc') ?>">Analyse</a> <!-- ✅ NEW -->
 
             <a href="<?= base_url('suivi') ?>">Suivi</a>
 

@@ -6,12 +6,17 @@ use CodeIgniter\Database\BaseConnection;
 
 /**
  * ============================================================
- * DataProvider
+ * DataProviderClubs
  * ============================================================
- * Source DATA fiable basée sur classementclubs + competition_meta
+ * Source fiable basée sur classementclubs
+ *
+ * - données officielles FPF
+ * - pas de dépendance photos
+ * - pas de problème de jointure
+ *
  * ============================================================
  */
-class DataProvider
+class DataProviderClubs
 {
     protected BaseConnection $db;
 
@@ -51,17 +56,16 @@ class DataProvider
 
         $rows = $this->db->query($sql, [$annee])->getResultArray();
 
+        // 🔧 normalisation simple
         foreach ($rows as &$r) {
-
             $r['club_id'] = (int)$r['club_id'];
             $r['points']  = (float)$r['points'];
             $r['ur']      = (int)$r['ur'];
 
-            // 🔥 normalisation métier
-            $r['level'] = $r['level'] ?? 'UNKNOWN';
-
-            // 🔥 indicateur UR22
-            $r['is_ur22'] = ($r['ur'] === 22);
+            // compat avec ancien service
+            $r['is_individual'] = false;
+            $r['is_disqualified'] = false;
+            $r['is_selected'] = true; // 🔥 déjà filtré en amont
         }
 
         return $rows;

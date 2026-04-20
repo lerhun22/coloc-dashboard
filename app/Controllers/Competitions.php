@@ -30,7 +30,7 @@ class Competitions extends BaseController
     =========================================================
     */
         $model           = new \App\Models\CompetitionModel();
-        $statsService    = new \App\Services\CompetitionStatsService();
+        $statsService    = new \App\Libraries\CompetitionStatsBulkService;
         $nationalService = new \App\Services\NationalStatsService();
 
         $this->data['page_css'] = 'competitions.css';

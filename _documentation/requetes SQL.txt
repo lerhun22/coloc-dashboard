@@ -1,0 +1,17 @@
+
+SELECT 
+    c.nom,
+    COUNT(*) AS nb_photos,
+    SUM(p.note_totale) AS points
+
+FROM photos p
+JOIN competitions c ON c.id = p.competitions_id
+
+WHERE p.participants_id LIKE '220603%'
+
+AND p.disqualifie = 0
+
+GROUP BY c.id, c.nom
+ORDER BY nb_photos DESC;
+
+

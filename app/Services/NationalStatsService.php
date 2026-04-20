@@ -153,4 +153,148 @@ class NationalStatsService
 
         return $results;
     }
+
+    public function computeRanking(int $competitionId): array
+    {
+        $rows = $this->db->query("
+        SELECT ean, note_totale
+        FROM photos
+        WHERE competitions_id = ?
+        AND disqualifie = 0
+    ", [$competitionId])->getResultArray();
+
+        $clubs = [];
+
+        foreach ($rows as $row) {
+
+            $ean = $row['ean'] ?? null;
+            if (!$ean) continue;
+
+            // 🔥 extraction robuste
+            $club = substr($ean, 2, 4);
+            $ur   = (int) substr($ean, 0, 2);
+
+            if (!isset($clubs[$club])) {
+                $clubs[$club] = [
+                    'club' => $club,
+                    'ur' => $ur,
+                    'points' => 0,
+                    'photos' => 0,
+                ];
+            }
+
+            $clubs[$club]['points'] += (float) ($row['note_totale'] ?? 0);
+            $clubs[$club]['photos']++;
+        }
+
+        // 🔥 tri classement
+        usort($clubs, fn($a, $b) => $b['points'] <=> $a['points']);
+
+        // 🔥 ranking
+        $rank = 1;
+        foreach ($clubs as &$c) {
+            $c['rank'] = $rank++;
+        }
+
+        return $clubs;
+    }
+
+    public function rebuildClassementClubs(int $competitionId): array
+    {
+        /*
+    =========================================================
+    📥 DATA
+    =========================================================
+    */
+        $rows = $this->db->query("
+        SELECT ean, note_totale
+        FROM photos
+        WHERE competitions_id = ?
+        AND disqualifie = 0
+    ", [$competitionId])->getResultArray();
+
+        $clubs = [];
+
+        /*
+    =========================================================
+    🧠 AGRÉGATION
+    =========================================================
+    */
+        foreach ($rows as $row) {
+
+            $ean = $row['ean'] ?? null;
+            if (!$ean) continue;
+
+            $clubNumero = substr($ean, 2, 4);
+            $ur         = (int) substr($ean, 0, 2);
+
+            if (!isset($clubs[$clubNumero])) {
+                $clubs[$clubNumero] = [
+                    'club_numero' => $clubNumero,
+                    'ur'          => $ur,
+                    'points'      => 0,
+                    'nb_photos'   => 0,
+                ];
+            }
+
+            $clubs[$clubNumero]['points'] += (float) ($row['note_totale'] ?? 0);
+            $clubs[$clubNumero]['nb_photos']++;
+        }
+
+        /*
+    =========================================================
+    🔗 MAPPING CLUB ID
+    =========================================================
+    */
+        foreach ($clubs as $numero => &$c) {
+
+            $club = $this->db->table('clubs')
+                ->where('numero', (int)$numero)
+                ->get()
+                ->getRowArray();
+
+            $c['club_id'] = $club['id'] ?? null;
+            $c['club_nom'] = $club['nom'] ?? 'UNKNOWN';
+        }
+
+        /*
+    =========================================================
+    🏆 RANKING
+    =========================================================
+    */
+        $clubs = array_values(array_filter($clubs, fn($c) => $c['club_id'] !== null));
+
+        usort($clubs, fn($a, $b) => $b['points'] <=> $a['points']);
+
+        $rank = 1;
+        foreach ($clubs as &$c) {
+            $c['place'] = $rank++;
+        }
+
+        /*
+    =========================================================
+    💾 INSERT / UPDATE DB
+    =========================================================
+    */
+        foreach ($clubs as $c) {
+
+            $this->db->query("
+            INSERT INTO classementclubs 
+                (competitions_id, clubs_id, total, place, nb_photos)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                total = VALUES(total),
+                place = VALUES(place),
+                nb_photos = VALUES(nb_photos)
+        ", [
+                $competitionId,
+                $c['club_id'],
+                $c['points'],
+                $c['place'],
+                $c['nb_photos']
+            ]);
+        }
+
+        return $clubs;
+    }
 }

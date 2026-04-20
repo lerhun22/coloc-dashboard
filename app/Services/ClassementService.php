@@ -238,4 +238,96 @@ class ClassementService
             $prev = $r->total;
         }
     }
+
+    public function computeClubRankingFromRows(array $rows): array
+    {
+        $clubs = [];
+
+        foreach ($rows as $r) {
+
+            $clubId   = $r['club_key'] ?? $r['club_id'] ?? null;
+            $clubName = $r['club_nom'] ?? 'Club #' . $clubId;
+
+            if (!$clubId) continue;
+
+            if (!isset($clubs[$clubId])) {
+                $clubs[$clubId] = [
+                    'club_id' => $clubId,
+                    'nom'     => $clubName,
+                    'points'  => 0,
+                    'images'  => 0,
+                    'ur'      => $r['participant_ur'] ?? null,
+                ];
+            }
+
+            // ⚠️ score basé sur note_totale
+            $points = isset($r['note_totale'])
+                ? $r['note_totale'] / 3
+                : 0;
+
+            $clubs[$clubId]['points'] += $points;
+            $clubs[$clubId]['images']++;
+        }
+
+        // TRI
+        usort($clubs, fn($a, $b) => $b['points'] <=> $a['points']);
+
+        // RANG
+        $rank = 1;
+        foreach ($clubs as &$c) {
+            $c['rang'] = $rank++;
+        }
+        unset($c);
+
+        return $clubs;
+    }
+
+
+    /**
+     * ============================================================
+     * 👤 CLASSEMENT AUTEURS
+     * ============================================================
+     */
+    public function computeAuteurRanking(int $cid, bool $debug): void
+    {
+        if ($debug) log_message('debug', "STEP auteurs");
+
+        // reset
+        $this->db->query("DELETE FROM classementauteurs WHERE competitions_id = ?", [$cid]);
+
+        // agrégation
+        $rows = $this->db->query("
+            SELECT 
+                participants_id,
+                SUM(note_totale) as total,
+                COUNT(*) as nb_photos
+            FROM photos
+            WHERE competitions_id = ?
+            GROUP BY participants_id
+            ORDER BY total DESC
+        ", [$cid])->getResult();
+
+        $place = 0;
+        $prev = null;
+        $pos = 0;
+
+        foreach ($rows as $r) {
+
+            $pos++;
+
+            if ($prev !== null && $r->total == $prev) {
+                // ex-aequo
+            } else {
+                $place = $pos;
+            }
+
+            $this->db->query("
+                INSERT INTO classementauteurs 
+                (competitions_id, participants_id, total, place, nb_photos)
+                VALUES (?, ?, ?, ?, ?)
+            ", [$cid, $r->participants_id, $r->total, $place, $r->nb_photos]);
+
+            $prev = $r->total;
+        }
+    }
 }

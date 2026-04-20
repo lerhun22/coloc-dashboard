@@ -41,7 +41,7 @@ class Jugement extends BaseController
         }
 
         $storage = new \App\Libraries\CompetitionStorage();
-        $photosUrl = base_url($storage->getPhotosUrl($competition));
+        $photosUrl = $storage->getPhotosUrl($competition);
         $photosPath = $storage->getPhotosPath($competition);
 
         //dd($photosPath, $photosUrl);
