@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : localhost:8889
--- Généré le : lun. 20 avr. 2026 à 13:05
+-- Généré le : mer. 22 avr. 2026 à 09:57
 -- Version du serveur : 5.7.39
 -- Version de PHP : 8.2.0
 
@@ -120,6 +120,34 @@ CREATE TABLE `club_rankings` (
   `tie_break_used` tinyint(1) DEFAULT '0',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `coloc_suivi`
+--
+
+CREATE TABLE `coloc_suivi` (
+  `id` int(11) NOT NULL,
+  `categorie` varchar(50) DEFAULT NULL,
+  `acteur` varchar(50) DEFAULT NULL,
+  `quoi` varchar(255) DEFAULT NULL,
+  `details` text,
+  `analyse` text,
+  `benefice` text,
+  `risque` text,
+  `contrainte` text,
+  `impact_systeme` varchar(50) DEFAULT NULL,
+  `cout` varchar(20) DEFAULT NULL,
+  `statut` varchar(20) DEFAULT NULL,
+  `priorite` varchar(20) DEFAULT NULL,
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `decision` varchar(20) DEFAULT NULL,
+  `version` varchar(20) DEFAULT NULL,
+  `reunion` varchar(50) DEFAULT NULL,
+  `saison` varchar(20) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -366,6 +394,12 @@ ALTER TABLE `club_rankings`
   ADD KEY `idx_club` (`club_id`);
 
 --
+-- Index pour la table `coloc_suivi`
+--
+ALTER TABLE `coloc_suivi`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Index pour la table `competitions`
 --
 ALTER TABLE `competitions`
@@ -456,6 +490,12 @@ ALTER TABLE `club_metrics`
 -- AUTO_INCREMENT pour la table `club_rankings`
 --
 ALTER TABLE `club_rankings`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT pour la table `coloc_suivi`
+--
+ALTER TABLE `coloc_suivi`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
