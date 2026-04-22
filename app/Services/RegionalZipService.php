@@ -10,18 +10,20 @@ class RegionalZipService implements ZipServiceInterface
 {
     public function process($competition): bool
     {
-        // 🔥 NORMALISATION EN PREMIER
-        if (is_array($competition)) {
-            $competition = (object) $competition;
-        }
+        log_message('debug', 'REGIONAL ZIP -> ' . ($competition->id ?? $competition['id'] ?? 'NULL'));
 
-        log_message('debug', 'REGIONAL ZIP -> ' . ($competition->id ?? 'NULL'));
-
-        if (!$competition || empty($competition->id)) {
+        if (!$competition) {
             throw new \Exception("Competition invalide");
         }
 
-        $ref = $competition->id;
+        // 🔒 récupération ID safe (array ou object)
+        $ref = is_array($competition)
+            ? ($competition['id'] ?? null)
+            : ($competition->id ?? null);
+
+        if (!$ref) {
+            throw new \Exception("Competition sans ID");
+        }
 
         $client  = new CopainClient();
         $storage = new CompetitionStorage();
@@ -46,7 +48,7 @@ class RegionalZipService implements ZipServiceInterface
 
         $zip = $client->generateZip(
             $ref,
-            $competition->type
+            is_array($competition) ? $competition['type'] : $competition->type
         );
 
         if (!$zip || ($zip['code'] ?? 1) != 0) {
@@ -87,7 +89,7 @@ class RegionalZipService implements ZipServiceInterface
             throw new \Exception("ZIP open failed");
         }
 
-        // extraction dans photos directement
+        // 🔥 extraction directe dans le dossier photos
         $zipArchive->extractTo($paths['photos']);
         $zipArchive->close();
 
@@ -95,7 +97,7 @@ class RegionalZipService implements ZipServiceInterface
 
         /*
         =====================
-        STEP 4 — NORMALISATION (OPTION)
+        STEP 4 — NORMALISATION
         =====================
         */
 
@@ -135,8 +137,13 @@ class RegionalZipService implements ZipServiceInterface
 
     private function flattenPhotos(string $photosPath): void
     {
+        if (!is_dir($photosPath)) {
+            log_message('error', '[ZIP R] flattenPhotos: dossier introuvable');
+            return;
+        }
+
         $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($photosPath)
+            new \RecursiveDirectoryIterator($photosPath, \FilesystemIterator::SKIP_DOTS)
         );
 
         foreach ($iterator as $file) {
@@ -149,8 +156,8 @@ class RegionalZipService implements ZipServiceInterface
 
             $dest = $photosPath . basename($file);
 
-            // évite overwrite
-            if ($file->getPathname() !== $dest) {
+            // évite overwrite + boucle infinie
+            if ($file->getPathname() !== $dest && !file_exists($dest)) {
                 rename($file->getPathname(), $dest);
             }
         }

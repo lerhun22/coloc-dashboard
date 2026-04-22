@@ -7,6 +7,7 @@ use App\Models\CompetitionModel;
 class CompetitionStorage
 {
     protected string $basePath;
+    private array $cache = [];
 
     public function __construct()
     {
@@ -14,263 +15,197 @@ class CompetitionStorage
     }
 
     /*
-    =========================
-    NORMALIZATION
-    =========================
+    ============================================================
+    🎯 CORE : RESOLVE FOLDER (NO CREATION HERE)
+    ============================================================
     */
 
     public function findCompetitionFolder(array $competition): ?string
     {
-        $saison = $competition['saison'];
+        if (empty($competition['id'])) {
+            log_message('error', 'CompetitionStorage: id manquant');
+            return null;
+        }
 
-        // 🔥 FIX : PAS DE PADDING ID
-        $id = $competition['id'];
+        $key = $competition['id'];
 
-        // ✔ padding uniquement ici
-        $numero = str_pad($competition['numero'], 4, '0', STR_PAD_LEFT);
+        if (isset($this->cache[$key])) {
+            return $this->cache[$key];
+        }
 
-        $base = rtrim($this->basePath, '/') . '/';
+        $saison = $competition['saison'] ?? null;
+        $id     = $competition['id'];
+        $numero = str_pad($competition['numero'] ?? 0, 4, '0', STR_PAD_LEFT);
 
         $ursId = $competition['urs_id'] ?? null;
-
         $isNational = ($ursId === null || $ursId == 0);
 
         $type = $isNational ? 'N' : 'R';
+        $ur   = $isNational ? '00' : str_pad($ursId, 2, '0', STR_PAD_LEFT);
 
-        $ur = $isNational
-            ? '00'
-            : str_pad($ursId, 2, '0', STR_PAD_LEFT);
-
-        $path = $base . "{$saison}_{$type}_{$id}_{$ur}_{$numero}/";
-
-        log_message('debug', 'PATH: ' . $path);
+        // FORMAT PRINCIPAL
+        $path = "{$this->basePath}{$saison}_{$type}_{$id}_{$ur}_{$numero}/";
 
         if (is_dir($path)) {
-            return $path;
+            return $this->cache[$key] = $path;
         }
 
-        log_message('error', 'Folder NOT FOUND: ' . json_encode($competition));
+        // FALLBACK ANCIEN FORMAT
+        $fallback = "{$this->basePath}{$saison}_{$type}_{$numero}_{$ur}_{$id}/";
 
-        return null;
+        if (is_dir($fallback)) {
+            log_message('debug', 'Fallback folder used: ' . $fallback);
+            return $this->cache[$key] = $fallback;
+        }
+
+        // ⚠️ ne log que si nécessaire (évite spam)
+        log_message('debug', 'Folder not found (will create): ' . $id);
+
+        return $this->cache[$key] = null;
     }
 
+    /*
+    ============================================================
+    🏗️ CREATE STRUCTURE (SOURCE DE VÉRITÉ)
+    ============================================================
+    */
 
-    public function getPhotosPath($competition): string
+    public function create(array $competition): string
     {
         $folder = $this->findCompetitionFolder($competition);
 
         if (!$folder) {
-            return '';
-        }
 
-        return $folder . 'photos/';
-    }
+            $saison = $competition['saison'];
+            $id     = $competition['id'];
+            $numero = str_pad($competition['numero'], 4, '0', STR_PAD_LEFT);
 
-    public function getPhotosUrl($competition): string
-    {
-        return 'uploads/competitions/' . $this->getCode($competition) . '/photos/';
-    }
+            $ursId = $competition['urs_id'] ?? null;
+            $type = empty($ursId) ? 'N' : 'R';
+            $ur   = empty($ursId) ? '00' : str_pad($ursId, 2, '0', STR_PAD_LEFT);
 
-    public function getThumbsUrl($competition): string
-    {
-        return 'uploads/competitions/' . $this->getCode($competition) . '/thumbs/';
-    }
+            $folder = "{$this->basePath}{$saison}_{$type}_{$id}_{$ur}_{$numero}/";
 
-    private function normalize($competition): object
-    {
-        return is_array($competition)
-            ? (object) $competition
-            : $competition;
-    }
-
-    /*
-    =========================
-    TYPE LOGIC
-    =========================
-    */
-
-    public function isNational($competition): bool
-    {
-        $competition = $this->normalize($competition);
-
-        // 🔥 priorité 1 : type explicite
-        if (isset($competition->type)) {
-            if (in_array((int)$competition->type, [2, 3])) {
-                return true;
+            if (!is_dir($folder)) {
+                mkdir($folder, 0777, true);
             }
         }
 
-        // 🔥 fallback intelligent (TRÈS IMPORTANT pour ton import)
-        if (!empty($competition->nom)) {
-            if (stripos($competition->nom, 'nat') !== false) {
-                return true;
-            }
-        }
+        // sous-dossiers standards COLOC
+        $folders = ['photos', 'thumbs', 'pdf', 'pte', 'export', 'temp', 'csv'];
 
-        return false;
-    }
-    /*
-    =========================
-    CORE PATH LOGIC
-    =========================
-    */
-    public function getCode($competition): string
-    {
-        $competition = $this->normalize($competition);
-
-        $saison = $competition->saison ?? '0000';
-
-        // ✅ ID brut (IMPORTANT)
-        $id = $competition->id ?? 0;
-
-        // ✅ numero pad sur 4 (OK)
-        $numero = str_pad($competition->numero ?? 0, 4, '0', STR_PAD_LEFT);
-
-        // règle métier
-        $type = empty($competition->urs_id) ? 'N' : 'R';
-
-        return "{$saison}_{$type}_{$id}_00_{$numero}";
-    }
-
-    public function getBaseUrl($competition): string
-    {
-        return base_url('uploads/competitions/' . $this->getCode($competition) . '/');
-    }
-
-    public function getBasePath($competition): string
-    {
-        $competition = $this->normalize($competition);
-
-        $code = $this->getCode($competition);
-
-        return rtrim($this->basePath, '/') . '/' . $code . '/';
-    }
-
-    /*
-    =========================
-    RESOLVE (LEGACY SAFE)
-    =========================
-    */
-
-    public function resolvePath($competition): string
-    {
-        $saison = $competition['saison'] ?? '0000';
-        $id     = str_pad($competition['id'] ?? 0, 4, '0', STR_PAD_LEFT);
-        $numero = str_pad($competition['numero'] ?? 0, 4, '0', STR_PAD_LEFT);
-
-        $type = $this->getType($competition);
-
-        return "{$this->basePath}{$saison}_{$type}_{$id}_00_{$numero}/";
-    }
-
-    /*
-    =========================
-    SUB PATHS
-    =========================
-    */
-
-    public function getThumbsPath($competition): string
-    {
-        return $this->resolvePath($competition) . 'thumbs/';
-    }
-
-    private function getType(array $competition): string
-    {
-        /*
-    ============================================================
-    TYPE COMPÉTITION
-    ============================================================
-    - urs_id NULL → NATIONAL (N)
-    - urs_id != NULL → REGIONAL (R)
-    ============================================================
-    */
-        if (!array_key_exists('urs_id', $competition)) {
-            log_message('warning', 'urs_id manquant dans competition');
-            return 'N';
-        }
-        return (array_key_exists('urs_id', $competition) && $competition['urs_id'] !== null)
-            ? 'R'
-            : 'N';
-    }
-
-
-    public function getPdfPath($competition): string
-    {
-        return $this->resolvePath($competition) . 'pdf/';
-    }
-
-    public function getPtePath($competition): string
-    {
-        return $this->resolvePath($competition) . 'pte/';
-    }
-
-    public function getExportPath($competition): string
-    {
-        return $this->resolvePath($competition) . 'export/';
-    }
-
-    public function getTempPath($competition): string
-    {
-        return $this->resolvePath($competition) . 'temp/';
-    }
-
-    /*
-    =========================
-    CREATE STRUCTURE (FIXED)
-    =========================
-    */
-
-    public function create($competition): string
-    {
-        $competition = $this->normalize($competition);
-
-        // 🔥 IMPORTANT : utiliser resolvePath (corrige le bug)
-        $base = $this->resolvePath($competition);
-
-        $folders = [
-            '',
-            'photos',
-            'thumbs',
-            'pdf',
-            'pte',
-            'export',
-            'temp',
-            'csv'
-        ];
-
-        foreach ($folders as $folder) {
-
-            $dir = rtrim($base, '/') . '/' . $folder;
-
+        foreach ($folders as $sub) {
+            $dir = $folder . $sub . '/';
             if (!is_dir($dir)) {
                 mkdir($dir, 0777, true);
             }
         }
 
-        return $base;
+        return $folder;
     }
 
     /*
-    =========================
-    ENSURE STRUCTURE
-    =========================
+    ============================================================
+    🧠 COMPATIBILITÉ LEGACY (IMPORTANT)
+    ============================================================
     */
 
-    public function ensureStructure($competition): array
+    public function ensureStructure(array $competition): array
     {
-        $this->create($competition);
+        $base = $this->create($competition);
 
         return [
-            'base'   => $this->resolvePath($competition),
-            'photos' => $this->getPhotosPath($competition),
-            'thumbs' => $this->getThumbsPath($competition),
+            'base'   => $base,
+            'photos' => $base . 'photos/',
+            'thumbs' => $base . 'thumbs/',
+            'pdf'    => $base . 'pdf/',
+            'export' => $base . 'export/',
         ];
     }
 
     /*
-    =========================
-    UTIL FILESYSTEM
-    =========================
+    ============================================================
+    📁 PATHS (AUTO-RÉSILIENT)
+    ============================================================
+    */
+
+    public function getPhotosPath($competition): string
+    {
+        $folder = $this->findCompetitionFolder((array)$competition);
+
+        if (!$folder) {
+            $folder = $this->create((array)$competition);
+        }
+
+        return $folder . 'photos/';
+    }
+
+    public function getThumbsPath($competition): string
+    {
+        $folder = $this->findCompetitionFolder((array)$competition);
+
+        if (!$folder) {
+            $folder = $this->create((array)$competition);
+        }
+
+        return $folder . 'thumbs/';
+    }
+
+    public function getPdfPath($competition): string
+    {
+        $folder = $this->findCompetitionFolder((array)$competition);
+
+        if (!$folder) {
+            $folder = $this->create((array)$competition);
+        }
+
+        return $folder . 'pdf/';
+    }
+
+    public function getExportPath($competition): string
+    {
+        $folder = $this->findCompetitionFolder((array)$competition);
+
+        if (!$folder) {
+            $folder = $this->create((array)$competition);
+        }
+
+        return $folder . 'export/';
+    }
+
+    /*
+    ============================================================
+    🌐 URLS
+    ============================================================
+    */
+
+    public function getPhotosUrl($competition): string
+    {
+        return $this->toUrl($this->getPhotosPath($competition));
+    }
+
+    public function getThumbsUrl($competition): string
+    {
+        return $this->toUrl($this->getThumbsPath($competition));
+    }
+
+    private function toUrl(string $path): string
+    {
+        if (empty($path)) {
+            return '';
+        }
+
+        return str_replace(
+            rtrim(FCPATH, '/') . '/',
+            base_url() . '/',
+            $path
+        );
+    }
+
+    /*
+    ============================================================
+    🔍 CHECKS
+    ============================================================
     */
 
     public function hasPhotos($competition): bool
@@ -279,92 +214,57 @@ class CompetitionStorage
 
         if (!is_dir($path)) return false;
 
-        foreach (scandir($path) as $file) {
-            if ($file !== '.' && $file !== '..') {
-                return true;
-            }
-        }
-
-        return false;
+        $files = array_diff(scandir($path), ['.', '..']);
+        return !empty($files);
     }
 
     public function hasThumbs($competition): bool
     {
-        return is_dir($this->getThumbsPath($competition));
+        $path = $this->getThumbsPath($competition);
+        return is_dir($path) && count(scandir($path)) > 2;
     }
 
     public function isJudged($competition): bool
     {
-        return file_exists(
-            $this->resolvePath($competition) . 'csv/jugement.csv'
-        );
+        $folder = $this->findCompetitionFolder((array)$competition);
+
+        return $folder && file_exists($folder . 'csv/jugement.csv');
     }
 
     /*
-    =========================
-    DB REGISTER
-    =========================
+    ============================================================
+    🗃️ DB REGISTER
+    ============================================================
     */
 
     private function resolveType(array $compet): int
     {
-        // 🔥 si déjà défini correctement
         if (isset($compet['type']) && in_array((int)$compet['type'], [1, 2, 3])) {
             return (int)$compet['type'];
         }
 
-        // 🔥 fallback basé sur le nom
-        if (!empty($compet['nom'])) {
-            if (stripos($compet['nom'], 'nat') !== false) {
-                return 2; // nationale
-            }
+        if (!empty($compet['nom']) && stripos($compet['nom'], 'nat') !== false) {
+            return 2;
         }
 
-        return 1; // régional par défaut
+        return 1;
     }
 
     public function registerCompetition(array $compet)
     {
         $model = new CompetitionModel();
 
-        $existing = $model
-            ->where('id', $compet['id'])
-            ->first();
+        $existing = $model->where('id', $compet['id'])->first();
 
-        if ($existing) {
-            return $existing['id'];
-        }
+        if ($existing) return $existing['id'];
 
         $data = [
-
             'id'     => $compet['id'],
             'numero' => $compet['numero'],
             'urs_id' => $compet['urs_id'] ?? null,
-
             'saison' => $compet['saison'],
-
-            'nom' => $compet['nom'],
-
-            'type' => $this->resolveType($compet),
-
-            'date_competition' => $compet['date_competition'] ?? date('Y-m-d'),
-
-            'max_photos_club' => $compet['max_photos_club'] ?? 999,
-            'max_photos_auteur' => $compet['max_photos_auteur'] ?? 99,
-
-            'param_photos_club' => $compet['param_photos_club'] ?? 0,
-            'param_photos_auteur' => $compet['param_photos_auteur'] ?? 0,
-
-            'quota' => $compet['quota'] ?? 0,
-
-            'note_min' => $compet['note_min'] ?? 6,
-            'note_max' => $compet['note_max'] ?? 20,
-
-            'nb_auteurs_ur_n2' => $compet['nb_auteurs_ur_n2'] ?? 3,
-            'nb_clubs_ur_n2' => $compet['nb_clubs_ur_n2'] ?? 7,
-
-            'pte' => 0,
-            'nature' => $compet['nature'] ?? 0
+            'nom'    => $compet['nom'],
+            'type'   => $this->resolveType($compet),
         ];
 
         $model->insert($data);

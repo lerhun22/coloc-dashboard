@@ -16,12 +16,18 @@ class CompetitionStorage
 
     /*
     ============================================================
-    🎯 CORE : UNIQUE SOURCE OF TRUTH
+    🎯 CORE : RESOLVE FOLDER (NO CREATION HERE)
     ============================================================
     */
-
+    private function normalize($competition): array
+    {
+        return is_array($competition) ? $competition : (array) $competition;
+    }
     public function findCompetitionFolder(array $competition): ?string
     {
+
+        $competition = $this->normalize($competition);
+
         if (empty($competition['id'])) {
             log_message('error', 'CompetitionStorage: id manquant');
             return null;
@@ -38,31 +44,19 @@ class CompetitionStorage
         $numero = str_pad($competition['numero'] ?? 0, 4, '0', STR_PAD_LEFT);
 
         $ursId = $competition['urs_id'] ?? null;
-
         $isNational = ($ursId === null || $ursId == 0);
 
         $type = $isNational ? 'N' : 'R';
+        $ur   = $isNational ? '00' : str_pad($ursId, 2, '0', STR_PAD_LEFT);
 
-        $ur = $isNational
-            ? '00'
-            : str_pad($ursId, 2, '0', STR_PAD_LEFT);
-
-        /*
-        ============================================================
-        🧱 FORMAT PRINCIPAL (NOUVEAU)
-        ============================================================
-        */
+        // FORMAT PRINCIPAL
         $path = "{$this->basePath}{$saison}_{$type}_{$id}_{$ur}_{$numero}/";
 
         if (is_dir($path)) {
             return $this->cache[$key] = $path;
         }
 
-        /*
-        ============================================================
-        🔁 FALLBACK (ANCIEN FORMAT POSSIBLE)
-        ============================================================
-        */
+        // FALLBACK ANCIEN FORMAT
         $fallback = "{$this->basePath}{$saison}_{$type}_{$numero}_{$ur}_{$id}/";
 
         if (is_dir($fallback)) {
@@ -70,39 +64,132 @@ class CompetitionStorage
             return $this->cache[$key] = $fallback;
         }
 
-        log_message('error', 'Folder NOT FOUND: ' . json_encode($competition));
+        // ⚠️ ne log que si nécessaire (évite spam)
+        log_message('debug', 'Folder not found (will create): ' . $id);
 
         return $this->cache[$key] = null;
     }
 
     /*
     ============================================================
-    📁 PATHS
+    🏗️ CREATE STRUCTURE (SOURCE DE VÉRITÉ)
+    ============================================================
+    */
+
+    public function create(array $competition): string
+    {
+        $competition = $this->normalize($competition);
+
+        $folder = $this->findCompetitionFolder($competition);
+
+        if (!$folder) {
+
+            $saison = $competition['saison'];
+            $id     = $competition['id'];
+            $numero = str_pad($competition['numero'], 4, '0', STR_PAD_LEFT);
+
+            $ursId = $competition['urs_id'] ?? null;
+            $type = empty($ursId) ? 'N' : 'R';
+            $ur   = empty($ursId) ? '00' : str_pad($ursId, 2, '0', STR_PAD_LEFT);
+
+            $folder = "{$this->basePath}{$saison}_{$type}_{$id}_{$ur}_{$numero}/";
+
+            if (!is_dir($folder)) {
+                mkdir($folder, 0777, true);
+            }
+        }
+
+        // sous-dossiers standards COLOC
+        $folders = ['photos', 'thumbs', 'pdf', 'pte', 'export', 'temp', 'csv'];
+
+        foreach ($folders as $sub) {
+            $dir = $folder . $sub . '/';
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+        }
+
+        return $folder;
+    }
+
+    /*
+    ============================================================
+    🧠 COMPATIBILITÉ LEGACY (IMPORTANT)
+    ============================================================
+    */
+
+    public function ensureStructure($competition): array
+    {
+        $competition = $this->normalize($competition);
+
+        $base = $this->create($competition);
+
+        return [
+            'base'   => $base,
+            'photos' => $base . 'photos/',
+            'thumbs' => $base . 'thumbs/',
+            'pdf'    => $base . 'pdf/',
+            'export' => $base . 'export/',
+        ];
+    }
+
+    /*
+    ============================================================
+    📁 PATHS (AUTO-RÉSILIENT)
     ============================================================
     */
 
     public function getPhotosPath($competition): string
     {
-        $folder = $this->findCompetitionFolder((array)$competition);
-        return $folder ? $folder . 'photos/' : '';
+        $competition = $this->normalize($competition);
+
+        $folder = $this->findCompetitionFolder($competition);
+
+        if (!$folder) {
+            $folder = $this->create($competition);
+        }
+
+        return $folder . 'photos/';
     }
 
     public function getThumbsPath($competition): string
     {
+
+        $competition = $this->normalize($competition);
+
         $folder = $this->findCompetitionFolder((array)$competition);
-        return $folder ? $folder . 'thumbs/' : '';
+
+        if (!$folder) {
+            $folder = $this->create((array)$competition);
+        }
+
+        return $folder . 'thumbs/';
     }
 
     public function getPdfPath($competition): string
     {
+        $competition = $this->normalize($competition);
+
         $folder = $this->findCompetitionFolder((array)$competition);
-        return $folder ? $folder . 'pdf/' : '';
+
+        if (!$folder) {
+            $folder = $this->create((array)$competition);
+        }
+
+        return $folder . 'pdf/';
     }
 
     public function getExportPath($competition): string
     {
+        $competition = $this->normalize($competition);
+
         $folder = $this->findCompetitionFolder((array)$competition);
-        return $folder ? $folder . 'export/' : '';
+
+        if (!$folder) {
+            $folder = $this->create((array)$competition);
+        }
+
+        return $folder . 'export/';
     }
 
     /*
@@ -132,46 +219,6 @@ class CompetitionStorage
             base_url() . '/',
             $path
         );
-    }
-
-    /*
-    ============================================================
-    🏗️ CREATE STRUCTURE
-    ============================================================
-    */
-
-    public function create($competition): string
-    {
-        $folder = $this->findCompetitionFolder((array)$competition);
-
-        // 🔥 si pas trouvé → on crée le dossier principal
-        if (!$folder) {
-
-            $saison = $competition['saison'];
-            $id     = $competition['id'];
-            $numero = str_pad($competition['numero'], 4, '0', STR_PAD_LEFT);
-
-            $ursId = $competition['urs_id'] ?? null;
-            $type = empty($ursId) ? 'N' : 'R';
-            $ur   = empty($ursId) ? '00' : str_pad($ursId, 2, '0', STR_PAD_LEFT);
-
-            $folder = "{$this->basePath}{$saison}_{$type}_{$id}_{$ur}_{$numero}/";
-
-            mkdir($folder, 0777, true);
-        }
-
-        $folders = ['photos', 'thumbs', 'pdf', 'pte', 'export', 'temp', 'csv'];
-
-        foreach ($folders as $sub) {
-
-            $dir = $folder . $sub;
-
-            if (!is_dir($dir)) {
-                mkdir($dir, 0777, true);
-            }
-        }
-
-        return $folder;
     }
 
     /*

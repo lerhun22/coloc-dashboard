@@ -9,23 +9,20 @@ class NationalZipService
 {
     public function process($competition): bool
     {
-        /*
-        =====================
-        NORMALISATION
-        =====================
-        */
+        log_message('debug', 'NATIONAL ZIP -> ' . ($competition->id ?? $competition['id'] ?? 'NULL'));
 
-        if (is_array($competition)) {
-            $competition = (object) $competition;
-        }
-
-        if (!$competition || empty($competition->id)) {
+        if (!$competition) {
             throw new \Exception("Competition invalide");
         }
 
-        $ref = $competition->id;
+        // 🔒 récupération ID compatible array / object
+        $ref = is_array($competition)
+            ? ($competition['id'] ?? null)
+            : ($competition->id ?? null);
 
-        log_message('debug', 'NATIONAL ZIP -> ' . $ref);
+        if (!$ref) {
+            throw new \Exception("Competition sans ID");
+        }
 
         $client  = new CopainClient();
         $storage = new CompetitionStorage();
@@ -47,6 +44,7 @@ class NationalZipService
         */
 
         log_message('debug', '[ZIP N] GENERATE ASYNC');
+
 
         $client->generateZipAsync($ref, 'N');
 
@@ -74,7 +72,6 @@ class NationalZipService
 
         $zipPath = WRITEPATH . 'imports/' . $ref . '.zip';
 
-        // nettoyage ancien fichier
         if (file_exists($zipPath)) {
             unlink($zipPath);
         }
@@ -91,8 +88,10 @@ class NationalZipService
 
         $localSize = filesize($zipPath);
 
+
         log_message('debug', '[ZIP N] LOCAL SIZE = ' . $localSize);
 
+        // 🔒 sécurité ZIP corrompu
         if ($localSize < 1000000) {
             throw new \Exception("ZIP invalide (trop petit)");
         }
@@ -107,7 +106,6 @@ class NationalZipService
 
         log_message('debug', '[ZIP N] EXTRACT');
 
-        // sécurité gros ZIP
         ini_set('memory_limit', '1024M');
         set_time_limit(0);
 
@@ -124,7 +122,7 @@ class NationalZipService
 
         /*
         =====================
-        STEP 5 — FLATTEN (CRITIQUE NATIONAL)
+        STEP 5 — FLATTEN
         =====================
         */
 
@@ -134,18 +132,7 @@ class NationalZipService
 
         /*
         =====================
-        STEP 6 — DEBUG FILES (OPTIONNEL MAIS UTILE)
-        =====================
-        */
-        /*
-        foreach (glob($paths['photos'] . '*') as $file) {
-            log_message('debug', '[ZIP N] FILE = ' . $file);
-        }
-        */
-        
-        /*
-        =====================
-        STEP 7 — THUMBS
+        STEP 6 — THUMBS
         =====================
         */
 
@@ -156,14 +143,13 @@ class NationalZipService
             $tool->index($ref);
 
             log_message('debug', '[ZIP N] THUMBS OK');
-
         } catch (\Throwable $e) {
             log_message('error', '[ZIP N] THUMBS ERROR ' . $e->getMessage());
         }
 
         /*
         =====================
-        STEP 8 — CLEANUP
+        STEP 7 — CLEANUP
         =====================
         */
 
@@ -192,6 +178,11 @@ class NationalZipService
 
     private function flattenPhotos(string $photosPath): void
     {
+        if (!is_dir($photosPath)) {
+            log_message('error', '[ZIP N] flattenPhotos: dossier introuvable');
+            return;
+        }
+
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($photosPath, \FilesystemIterator::SKIP_DOTS)
         );
@@ -206,8 +197,8 @@ class NationalZipService
 
             $dest = $photosPath . basename($file);
 
-            // évite overwrite
-            if ($file->getPathname() !== $dest) {
+            // 🔒 évite overwrite + boucles
+            if ($file->getPathname() !== $dest && !file_exists($dest)) {
                 rename($file->getPathname(), $dest);
             }
         }

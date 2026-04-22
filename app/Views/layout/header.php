@@ -48,8 +48,7 @@ if ($activeCompetition) {
 
             <a href="<?= base_url('dashboard/coloc') ?>">Analyse</a> <!-- ✅ NEW -->
 
-            <a href="<?= base_url('suivi') ?>">Suivi</a>
-
+            <a href="<?= base_url('suivi') ?>">Suivi</a> <!-- ✅ NEW -->
         </nav>
 
         <div class="header-competition">

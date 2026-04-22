@@ -140,108 +140,107 @@ class CopainClient
     ===================================
     */
 
-public function downloadFile($url, $dest)
-{
-    set_time_limit(0);
+    public function downloadFile($url, $dest)
+    {
+        set_time_limit(0);
 
-    log_message('debug', 'DOWNLOAD URL = ' . $url);
+        log_message('debug', 'DOWNLOAD URL = ' . $url);
 
-    $dir = dirname($dest);
+        $dir = dirname($dest);
 
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        if (file_exists($dest)) {
+            unlink($dest);
+        }
+
+        $fp = fopen($dest, 'wb');
+
+        if (!$fp) {
+            log_message('error', 'FOPEN FAIL ' . $dest);
+            return false;
+        }
+
+        $ch = curl_init($url);
+
+        // 🔥 seuil de log = 50 MB
+        $logStep = 50 * 1024 * 1024;
+
+        // 🔥 prochain seuil à atteindre
+        $nextLog = $logStep;
+
+        curl_setopt_array($ch, [
+
+            CURLOPT_FILE => $fp,
+            CURLOPT_FOLLOWLOCATION => true,
+
+            CURLOPT_COOKIEJAR  => $this->cookie,
+            CURLOPT_COOKIEFILE => $this->cookie,
+
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+
+            CURLOPT_TIMEOUT => 0,
+
+            CURLOPT_USERAGENT => "Mozilla/5.0",
+            CURLOPT_REFERER => "https://copain.federation-photo.fr/",
+
+            CURLOPT_HTTPHEADER => [
+                "Accept: */*",
+                "Connection: keep-alive",
+                "Origin: https://copain.federation-photo.fr"
+            ],
+
+            CURLOPT_NOPROGRESS => false,
+            CURLOPT_PROGRESSFUNCTION => function (
+                $resource,
+                $download_size,
+                $downloaded,
+                $upload_size,
+                $uploaded
+            ) use (&$nextLog, $logStep) {
+
+                // 👉 log uniquement tous les 50 MB
+                if ($downloaded < $nextLog) {
+                    return;
+                }
+
+                // 👉 avancer le prochain seuil
+                $nextLog += $logStep;
+
+                if ($download_size > 0) {
+
+                    $percent = round(($downloaded / $download_size) * 100, 1);
+
+                    log_message(
+                        'debug',
+                        "[DOWNLOAD] {$percent}% (" .
+                            round($downloaded / 1024 / 1024, 1) . " MB / " .
+                            round($download_size / 1024 / 1024, 1) . " MB)"
+                    );
+                } else {
+
+                    log_message(
+                        'debug',
+                        "[DOWNLOAD] " . round($downloaded / 1024 / 1024, 1) . " MB"
+                    );
+                }
+            },
+        ]);
+
+        $result = curl_exec($ch);
+
+        if ($result === false) {
+            log_message('error', 'CURL ERROR: ' . curl_error($ch));
+        }
+
+        curl_close($ch);
+        fclose($fp);
+
+        return $result !== false;
     }
-
-    if (file_exists($dest)) {
-        unlink($dest);
-    }
-
-    $fp = fopen($dest, 'wb');
-
-    if (!$fp) {
-        log_message('error', 'FOPEN FAIL ' . $dest);
-        return false;
-    }
-
-    $ch = curl_init($url);
-
-    // 🔥 seuil de log = 50 MB
-    $logStep = 50 * 1024 * 1024;
-
-    // 🔥 prochain seuil à atteindre
-    $nextLog = $logStep;
-
-    curl_setopt_array($ch, [
-
-        CURLOPT_FILE => $fp,
-        CURLOPT_FOLLOWLOCATION => true,
-
-        CURLOPT_COOKIEJAR  => $this->cookie,
-        CURLOPT_COOKIEFILE => $this->cookie,
-
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => false,
-
-        CURLOPT_TIMEOUT => 0,
-
-        CURLOPT_USERAGENT => "Mozilla/5.0",
-        CURLOPT_REFERER => "https://copain.federation-photo.fr/",
-
-        CURLOPT_HTTPHEADER => [
-            "Accept: */*",
-            "Connection: keep-alive",
-            "Origin: https://copain.federation-photo.fr"
-        ],
-
-        CURLOPT_NOPROGRESS => false,
-        CURLOPT_PROGRESSFUNCTION => function (
-            $resource,
-            $download_size,
-            $downloaded,
-            $upload_size,
-            $uploaded
-        ) use (&$nextLog, $logStep) {
-
-            // 👉 log uniquement tous les 50 MB
-            if ($downloaded < $nextLog) {
-                return;
-            }
-
-            // 👉 avancer le prochain seuil
-            $nextLog += $logStep;
-
-            if ($download_size > 0) {
-
-                $percent = round(($downloaded / $download_size) * 100, 1);
-
-                log_message(
-                    'debug',
-                    "[DOWNLOAD] {$percent}% (" .
-                    round($downloaded / 1024 / 1024, 1) . " MB / " .
-                    round($download_size / 1024 / 1024, 1) . " MB)"
-                );
-
-            } else {
-
-                log_message(
-                    'debug',
-                    "[DOWNLOAD] " . round($downloaded / 1024 / 1024, 1) . " MB"
-                );
-            }
-        },
-    ]);
-
-    $result = curl_exec($ch);
-
-    if ($result === false) {
-        log_message('error', 'CURL ERROR: ' . curl_error($ch));
-    }
-
-    curl_close($ch);
-    fclose($fp);
-
-    return $result !== false;
-}
 
     /*
     ===================================
@@ -455,48 +454,72 @@ AUTO LOGIN
         exit;
     }
 
-public function waitForZip($ref, $timeout = 300)
-{
-    $url = "https://copain.federation-photo.fr/webroot/json/zip_photos_{$ref}.zip";
+    public function waitForZip($ref, $timeout = 300)
+    {
+        $url = "https://copain.federation-photo.fr/webroot/json/zip_photos_{$ref}.zip";
 
-    $start = time();
-    $lastSize = 0;
-    $stableCount = 0;
+        $start = time();
 
-    while ((time() - $start) < $timeout) {
+        while ((time() - $start) < $timeout) {
 
-        $headers = @get_headers($url);
+            $headers = @get_headers($url);
 
-        log_message('debug', '[WAIT ZIP] headers=' . ($headers[0] ?? 'NONE'));
+            log_message('debug', '[WAIT ZIP] headers=' . ($headers[0] ?? 'NONE'));
 
-        if ($headers && isset($headers[0]) && str_contains($headers[0], '200')) {
+            if ($headers && isset($headers[0]) && str_contains($headers[0], '200')) {
 
-            // 🔥 taille réelle
-            $size = $this->getRemoteFileSize($url);
+                log_message('debug', '[WAIT ZIP] ZIP DISPONIBLE');
 
-            log_message('debug', '[WAIT ZIP] size=' . $size);
-
-            if ($size > 3000000) {
-
-                if ($size === $lastSize) {
-                    $stableCount++;
-                } else {
-                    $stableCount = 0;
-                }
-
-                $lastSize = $size;
-
-                // 👉 taille stable 2 fois = ZIP terminé
-                if ($stableCount >= 2) {
-                    return $url;
-                }
+                return $url; // 🔥 STOP ici
             }
+
+            sleep(5);
         }
 
-        sleep(5);
+        return false;
     }
 
-    return false;
-}
+    public function waitForZipOLD($ref, $timeout = 300)
+    {
+        $url = "https://copain.federation-photo.fr/webroot/json/zip_photos_{$ref}.zip";
 
+        $start = time();
+        $lastSize = 0;
+        $stableCount = 0;
+
+        while ((time() - $start) < $timeout) {
+
+            $headers = @get_headers($url);
+
+            log_message('debug', '[WAIT ZIP] headers=' . ($headers[0] ?? 'NONE'));
+
+            if ($headers && isset($headers[0]) && str_contains($headers[0], '200')) {
+
+                // 🔥 taille réelle
+                $size = $this->getRemoteFileSize($url);
+
+                log_message('debug', '[WAIT ZIP] size=' . $size);
+
+                if ($size > 3000000) {
+
+                    if ($size === $lastSize) {
+                        $stableCount++;
+                    } else {
+                        $stableCount = 0;
+                    }
+
+                    $lastSize = $size;
+
+                    // 👉 taille stable 2 fois = ZIP terminé
+                    if ($stableCount >= 2) {
+                        return $url;
+                    }
+                }
+            }
+
+            sleep(5);
+        }
+
+        return false;
+    }
 }
