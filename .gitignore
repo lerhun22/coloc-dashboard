@@ -7,3 +7,4 @@ uploads/
 /public/uploads/
 *.zip
 *.log
+public/null/ci_session*

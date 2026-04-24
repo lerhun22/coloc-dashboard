@@ -227,19 +227,28 @@ class CopainClient
                         "[DOWNLOAD] " . round($downloaded / 1024 / 1024, 1) . " MB"
                     );
                 }
+                return 0;
             },
         ]);
 
         $result = curl_exec($ch);
 
-        if ($result === false) {
-            log_message('error', 'CURL ERROR: ' . curl_error($ch));
+        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        if ($result === false || $http !== 200) {
+
+            log_message(
+                'error',
+                'DOWNLOAD FAIL: ' .
+                    curl_error($ch) .
+                    " HTTP={$http}"
+            );
+
+            curl_close($ch);
+            fclose($fp);
+
+            return false;
         }
-
-        curl_close($ch);
-        fclose($fp);
-
-        return $result !== false;
     }
 
     /*
@@ -455,6 +464,48 @@ AUTO LOGIN
     }
 
     public function waitForZip($ref, $timeout = 300)
+    {
+        ignore_user_abort(true);
+        set_time_limit(0);
+
+        $url = "https://copain.federation-photo.fr/webroot/json/zip_photos_{$ref}.zip";
+
+        $start = time();
+
+        while ((time() - $start) < $timeout) {
+
+            clearstatcache();
+
+            $headers = @get_headers($url);
+
+            log_message(
+                'debug',
+                '[WAIT ZIP] headers=' . ($headers[0] ?? 'NONE')
+            );
+
+            if (
+                $headers &&
+                isset($headers[0]) &&
+                str_contains($headers[0], '200')
+            ) {
+
+                log_message(
+                    'debug',
+                    '[WAIT ZIP] ZIP DISPONIBLE'
+                );
+
+                return $url;
+            }
+
+            sleep(5);
+        }
+
+        throw new \RuntimeException(
+            "ZIP generation timeout ({$timeout}s)"
+        );
+    }
+
+    public function waitForZipOLD2($ref, $timeout = 300)
     {
         $url = "https://copain.federation-photo.fr/webroot/json/zip_photos_{$ref}.zip";
 

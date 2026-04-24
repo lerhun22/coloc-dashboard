@@ -9,6 +9,10 @@ class NationalZipService
 {
     public function process($competition): bool
     {
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         log_message('debug', 'NATIONAL ZIP -> ' . ($competition->id ?? $competition['id'] ?? 'NULL'));
 
         if (!$competition) {
@@ -88,7 +92,6 @@ class NationalZipService
 
         $localSize = filesize($zipPath);
 
-
         log_message('debug', '[ZIP N] LOCAL SIZE = ' . $localSize);
 
         // 🔒 sécurité ZIP corrompu
@@ -111,11 +114,20 @@ class NationalZipService
 
         $zipArchive = new \ZipArchive();
 
-        if ($zipArchive->open($zipPath) !== true) {
-            throw new \Exception("ZIP open failed");
+        $status = $zipArchive->open($zipPath);
+
+        if ($status !== true) {
+            throw new \RuntimeException(
+                'ZIP open failed code ' . $status
+            );
         }
 
-        $zipArchive->extractTo($paths['photos']);
+        if (!$zipArchive->extractTo($paths['photos'])) {
+            throw new \RuntimeException(
+                'ZIP extraction failed'
+            );
+        }
+
         $zipArchive->close();
 
         log_message('debug', '[ZIP N] EXTRACT OK');

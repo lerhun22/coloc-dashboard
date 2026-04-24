@@ -275,6 +275,19 @@ class ImportFromCopain extends BaseController
         ============================================================
         */
 
+            /*
+|--------------------------------------------------------------------------
+| RELEASE SESSION LOCK
+|--------------------------------------------------------------------------
+*/
+            $session = session();
+            $session->close(); // ou session_write_close();
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+
+
             $home = new \App\Controllers\Home();
 
             if ($type === 'N') {

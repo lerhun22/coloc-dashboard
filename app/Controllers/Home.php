@@ -23,7 +23,6 @@ class Home extends BaseController
     public function index()
     {
         $cid = 734; // ou dynamique
-        //dd($cid);
         $service = new ClassementService();
         $service->compute($cid, true);
 
@@ -38,7 +37,7 @@ class Home extends BaseController
 
         $results = $photoModel->getSyntheseClubsUR($ur);
 
-        dd($results);
+        log_message('debug', 'SYNTHESE RESULTS: ' . json_encode($results));
 
         return view('home/synthese_ur22', [
             'results' => $results
@@ -67,9 +66,6 @@ class Home extends BaseController
         ]);
     }
 
-
-
-
     public function importnational($id)
     {
         $client = new \App\Libraries\CopainClient();
@@ -93,7 +89,8 @@ class Home extends BaseController
         $result = $importer->importCompetition($id, 'N', 1); // ⚠️ type N
 
         if (($result['code'] ?? 1) != 0) {
-            dd("IMPORT JSON FAIL", $result);
+            log_message('error', 'IMPORT JSON FAIL: ' . json_encode($result));
+            throw new \RuntimeException('Copain import failed');
         }
 
         /*
@@ -107,7 +104,8 @@ class Home extends BaseController
         $competition = $model->find($id);
 
         if (!$competition) {
-            dd("COMPETITION NOT FOUND", $id);
+            log_message('error', 'COMPETITION NOT FOUND: ' . $id);
+            throw new \RuntimeException('Copain competition not found');
         }
 
         /*
@@ -120,11 +118,17 @@ class Home extends BaseController
 
         $zip->process($competition);
 
-        dd('N OK');
+        return ['code' => 0];
     }
 
     public function importregional($id)
     {
+
+        session()->close();
+
+        ignore_user_abort(true);
+        set_time_limit(0);
+
         $client = new \App\Libraries\CopainClient();
 
         /*
@@ -163,7 +167,9 @@ class Home extends BaseController
         log_message('debug', 'COMPETITIONS COUNT=' . print_r($competition));
 
         if (!$competition) {
-            dd("COMPETITION STILL NOT FOUND", $id);
+            throw new \RuntimeException(
+                "Competition not found after import (ID {$id})"
+            );
         }
 
         /*
@@ -173,7 +179,7 @@ class Home extends BaseController
     */
 
         $zip = new \App\Services\RegionalZipService();
-        //dd($zip);
+        log_message('debug', 'ZIP SERVICE: ' . json_encode($zip));
 
         $zip->process($competition);
 
@@ -189,6 +195,9 @@ class Home extends BaseController
 
     public function importNationalFromCopain()
     {
+
+        session()->close();
+
         $config = config('Copain');
 
         $email    = $config->email;
@@ -291,7 +300,7 @@ class Home extends BaseController
             $this->password
         );
 
-        dd($data);
+        log_message('debug', 'API DATA: ' . json_encode($data));
     }
 
     /*
@@ -320,7 +329,9 @@ class Home extends BaseController
         );
 
         if (!$login || $login['code'] != 0) {
-            dd("LOGIN FAIL", $login);
+            log_message('error', 'LOGIN FAIL: ' . json_encode($login));
+
+            throw new \RuntimeException('Copain login failed');
         }
 
         /*
@@ -350,7 +361,14 @@ class Home extends BaseController
         );
 
         if (!$import || $import['code'] != 0) {
-            dd("IMPORT FAIL", $import);
+            log_message(
+                'error',
+                'IMPORT FAIL: ' . json_encode($import)
+            );
+
+            throw new \RuntimeException(
+                'Copain import failed'
+            );
         }
 
         /*
@@ -361,7 +379,14 @@ class Home extends BaseController
         $compet = json_decode($json, true);
 
         if (!$compet) {
-            dd("JSON FAIL");
+            log_message(
+                'error',
+                '[JSON FAIL] Unable to decode competition payload'
+            );
+
+            throw new \RuntimeException(
+                'Competition JSON decode failed'
+            );
         }
 
         /*
@@ -390,7 +415,14 @@ class Home extends BaseController
         $zip = $client->generateZip($ref, $type);
 
         if (!$zip || $zip['code'] != 0) {
-            dd("ZIP FAIL", $zip);
+            log_message(
+                'error',
+                'ZIP FAIL: ' . json_encode($zip)
+            );
+
+            throw new \RuntimeException(
+                'Copain zip generation failed'
+            );
         }
 
         /*
@@ -405,7 +437,14 @@ class Home extends BaseController
         );
 
         if (!$ok) {
-            dd("DOWNLOAD FAIL");
+            log_message(
+                'error',
+                'DOWNLOAD FAIL: ' . json_encode($zip)
+            );
+
+            throw new \RuntimeException(
+                'Copain file download failed'
+            );
         }
 
         /*
@@ -418,7 +457,14 @@ class Home extends BaseController
             $zipArchive->extractTo($baseDir . '/photos');
             $zipArchive->close();
         } else {
-            dd("UNZIP FAIL");
+            log_message(
+                'error',
+                '[UNZIP FAIL] ZipArchive open/extract failed'
+            );
+
+            throw new \RuntimeException(
+                'ZIP extraction failed'
+            );
         }
 
         /*
@@ -453,10 +499,9 @@ class Home extends BaseController
         RESULTAT
         */
 
-        dd(
-            "IMPORT ZIP OK",
-            "Images : " . $count,
-            "Dossier : " . $baseDir
+        log_message(
+            'debug',
+            "IMPORT ZIP OK: Images = {$count}, Dossier = {$baseDir}"
         );
     }
 }
