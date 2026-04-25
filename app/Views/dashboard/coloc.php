@@ -1,234 +1,353 @@
 <?= $this->extend('layout/default') ?>
 <?= $this->section('content') ?>
 
+<?php
+$top = array_slice($national, 0, 10);
+
+$urClubs = $dashboard['urClubs'] ?? [];
+
+$matrixNational =
+    $dashboard['competitionMatrixNational'] ?? [];
+
+$matrixRegional =
+    $dashboard['competitionMatrixRegional'] ?? [];
+
+$clubs =
+    $dashboard['clubColumns'] ?? [];
+
+sort($clubs);
+
+$globalFPF =
+    $dashboard['globalFPF'];
+
+$comparison =
+    $dashboard['comparison'];
+
+/*
+------------------------------------------------
+Club labels
+------------------------------------------------
+*/
+
+$clubMap =
+    $dashboard['clubLabels'] ?? [];
+?>
+
 <style>
     .main-content {
-        max-width: 1400px;
+        max-width: 1550px;
         margin: auto;
+        padding: 30px;
     }
 
     .section {
         background: #fff;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 30px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        padding: 34px 38px;
+        border-radius: 18px;
+        margin-bottom: 45px;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, .08);
     }
 
-    h2 {
-        margin-bottom: 10px;
-    }
+    /* =========================
+KPIs
+========================= */
 
     .grid-3 {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 15px;
+        gap: 24px;
+        margin: 30px 0;
     }
 
     .card {
-        padding: 15px;
         background: #f7f9fc;
-        border-radius: 8px;
+        padding: 28px;
+        border-radius: 14px;
+    }
+
+    .card b {
+        display: block;
+        font-size: 32px;
+        margin-top: 8px;
     }
 
     .highlight {
-        color: #e67e22;
-        font-weight: bold;
+        background: #fff6e6;
     }
+
+    .export-btn {
+        float: right;
+        background: #27ae60;
+        color: #fff;
+        padding: 11px 18px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 700;
+    }
+
+
+    /* =========================
+BASE TABLE RESET
+========================= */
 
     table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 10px;
-    }
-
-    th,
-    td {
-        padding: 8px;
-        border-bottom: 1px solid #eee;
-        text-align: center;
+        margin-top: 20px;
     }
 
     th {
-        background: #2c3e50;
+        background: #243447;
         color: #fff;
+        padding: 15px 18px;
     }
 
-    .small {
-        font-size: 12px;
-        color: #666;
+    td {
+        padding: 14px 18px;
+        border-bottom: 1px solid #e8edf3;
+        color: #1f2937;
+        background: #fff;
     }
+
+
+    /* =========================
+RANKINGS (FIX gris parasite)
+========================= */
+
+    .ranking {
+        font-size: 18px;
+        width: 100%;
+    }
+
+    .ranking tbody tr,
+    .ranking tbody td {
+        background: #ffffff !important;
+    }
+
+    .ranking tbody tr:hover td {
+        background: #eef6ff !important;
+        transition: .15s;
+    }
+
+    .ranking td {
+        box-shadow: none !important;
+        border-bottom: 1px solid #e8edf3;
+    }
+
+    .rank-col {
+        width: 75px;
+        text-align: center;
+    }
+
+    .rank-badge {
+        display: inline-block;
+        min-width: 38px;
+        padding: 7px 11px;
+        border-radius: 20px;
+        background: #243447;
+        color: #fff;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    .club-col {
+        width: 42%;
+        text-align: left;
+        font-weight: 600;
+        background: #fff !important;
+        color: #172033;
+    }
+
+    .ur-col {
+        width: 90px;
+        text-align: center;
+    }
+
+    .num-col {
+        width: 120px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .total-col {
+        font-weight: 700;
+        font-size: 20px;
+    }
+
+
+    /* =========================
+CLUB BADGES
+========================= */
+
+    .club-chip {
+        display: inline-block;
+        padding: 8px 14px;
+        border-radius: 18px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1;
+    }
+
+    [class^="club-"] {
+        background: #7f8c8d;
+    }
+
+    .club-603 {
+        background: #8e44ad;
+    }
+
+    .club-1233 {
+        background: #3498db;
+    }
+
+    .club-1677 {
+        background: #16a085;
+    }
+
+    .club-1771 {
+        background: #d35400;
+    }
+
+    .club-1816 {
+        background: #e74c3c;
+    }
+
+    .club-1829 {
+        background: #2ecc71;
+    }
+
+    .club-2159 {
+        background: #34495e;
+    }
+
+    .club-2268 {
+        background: #f39c12;
+    }
+
+    .club-2274 {
+        background: #c0392b;
+    }
+
+    .club-58 {
+        background: #9b59b6;
+    }
+
+    .club-131 {
+        background: #16a085;
+    }
+
+    .club-747 {
+        background: #2980b9;
+    }
+
+
+    /* =========================
+MATRICES
+========================= */
+
+    .matrix-wrap {
+        overflow-x: auto;
+        padding-bottom: 10px;
+    }
+
+    .matrix {
+        min-width: 1500px;
+    }
+
+    .matrix th,
+    .matrix td {
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    .matrix td:first-child {
+        text-align: left;
+        min-width: 360px;
+        font-weight: 600;
+    }
+
+    .matrix td:nth-child(2) {
+        min-width: 260px;
+        background: #fff;
+    }
+
+    .matrix td.active {
+        background: #eef6ff;
+        font-weight: 700;
+    }
+
+
+    /* =========================
+LEGEND
+========================= */
 
     .legend {
-        margin-top: 10px;
-        font-size: 12px;
+        margin-top: 30px;
     }
 
-    /* ========================= */
-    /* 🔴 GALERIE JUGEMENT */
-    /* ========================= */
-
-    .jugement-grid {
+    .legend-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 15px;
+        grid-template-columns:
+            repeat(auto-fit, minmax(420px, 1fr));
+        gap: 20px 40px;
+        margin-top: 20px;
     }
 
-    .jugement-card {
-        background: #fff;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-        transition: .2s;
-    }
-
-    .jugement-card:hover {
-        transform: translateY(-4px);
-    }
-
-    .jugement-img {
-        width: 100%;
-        height: 160px;
-        object-fit: cover;
-        cursor: pointer;
-    }
-
-    .jugement-content {
-        padding: 10px;
-        text-align: left;
-    }
-
-    .jugement-title {
-        font-weight: bold;
-        font-size: 14px;
-        margin-bottom: 5px;
-    }
-
-    .jugement-meta {
-        font-size: 12px;
-        color: #666;
-        margin-bottom: 5px;
-    }
-
-    .badge-notes span {
-        display: inline-block;
-        padding: 4px 6px;
-        margin: 2px;
-        border-radius: 4px;
-        font-size: 11px;
-        color: #fff;
-    }
-
-    /* ========================= */
-    /* ✨ WOW */
-    /* ========================= */
-
-    .wow-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 10px;
-    }
-
-    .wow-grid img {
-        width: 100%;
-        height: 160px;
-        object-fit: cover;
-        border-radius: 8px;
-        cursor: pointer;
-    }
-
-    /* ========================= */
-    /* LIGHTBOX */
-    /* ========================= */
-
-    .lightbox {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, .95);
-        display: none;
+    .legend-item {
+        display: flex;
         align-items: center;
-        justify-content: center;
-        z-index: 9999;
-    }
-
-    .lightbox img {
-        max-width: 90%;
-        max-height: 90%;
-    }
-
-    .lightbox-close {
-        position: absolute;
-        top: 20px;
-        right: 30px;
-        color: white;
-        font-size: 30px;
-        cursor: pointer;
-    }
-
-    .lightbox-nav {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 60px;
-        color: white;
-        cursor: pointer;
-    }
-
-    .lightbox-nav.left {
-        left: 20px;
-    }
-
-    .lightbox-nav.right {
-        right: 20px;
+        gap: 14px;
+        white-space: nowrap;
     }
 </style>
 
+
 <div class="main-content">
 
-    <h1>📊 Dashboard COLOC — Saison <?= $annee ?></h1>
+    <h1>
+        📊 Dashboard COLOC — Saison <?= $annee ?>
 
-    <?php
-    $top = array_slice($national, 0, 10);
-    $urClubs = $dashboard['urClubs'];
-    $matrix = $dashboard['competitionMatrix'] ?? [];
-    $globalFPF = $dashboard['globalFPF'];
-    $comparison = $dashboard['comparison'];
+        <a href="<?= site_url('dashboard/export') ?>"
+            class="export-btn">
+            📥 Export Excel
+        </a>
+    </h1>
 
-    /* MAP CLUBS */
-    $clubMap = [];
-    foreach ($urClubs as $c) {
-        $clubMap[$c['numero']] = $c['nom'];
-    }
-    ?>
 
-    <!-- ========================= -->
-    <!-- 🔵 NATIONAL -->
-    <!-- ========================= -->
     <div class="section">
 
         <h2>🔵 Classement National</h2>
 
         <div class="grid-3">
+
             <div class="card">
-                <b>Clubs actifs</b><br>
-                <?= $globalFPF['nb_clubs'] ?><br>
-                <span class="small">sur <?= $totalClubs ?></span>
+                Clubs actifs
+                <b><?= $globalFPF['nb_clubs'] ?></b>
             </div>
 
             <div class="card">
-                <b>Points FPF</b><br>
-                <?= number_format($globalFPF['nb_points'], 0, ',', ' ') ?>
+                Points FPF
+                <b>
+                    <?= number_format(
+                        $globalFPF['nb_points'],
+                        0,
+                        '',
+                        ' '
+                    ) ?>
+                </b>
             </div>
 
             <div class="card highlight">
-                <b>UR22</b><br><?= $comparison['ratio_points'] ?> %
+                UR22
+                <b><?= $comparison['ratio_points'] ?>%</b>
             </div>
+
         </div>
 
-        <table>
+
+        <table class="ranking">
+
             <tr>
                 <th>#</th>
                 <th>Club</th>
@@ -239,220 +358,335 @@
                 <th>Total</th>
             </tr>
 
+
             <?php foreach ($top as $c): ?>
+
                 <tr>
-                    <td><?= $c['rank'] ?></td>
-                    <td><?= esc($c['club_nom']) ?></td>
-                    <td><?= $c['ur'] ?></td>
-                    <td><?= number_format($c['N2']) ?></td>
-                    <td><?= number_format($c['N1']) ?></td>
-                    <td><?= number_format($c['CDF']) ?></td>
-                    <td><strong><?= number_format($c['total']) ?></strong></td>
+
+                    <td class="rank-col">
+                        <span class="rank-badge">
+                            <?= $c['rank'] ?>
+                        </span>
+                    </td>
+
+                    <td class="club-col">
+                        <?= mb_strimwidth(
+                            esc((string)$c['club_nom']),
+                            0,
+                            40,
+                            '…'
+                        ) ?>
+                    </td>
+
+                    <td class="ur-col">
+                        <?= $c['ur'] ?>
+                    </td>
+
+                    <td class="num-col">
+                        <?= number_format(
+                            $c['N2'],
+                            0,
+                            '',
+                            ' '
+                        ) ?>
+                    </td>
+
+                    <td class="num-col">
+                        <?= number_format(
+                            $c['N1'],
+                            0,
+                            '',
+                            ' '
+                        ) ?>
+                    </td>
+
+                    <td class="num-col">
+                        <?= number_format(
+                            $c['CDF'],
+                            0,
+                            '',
+                            ' '
+                        ) ?>
+                    </td>
+
+                    <td class="num-col total-col">
+                        <?= number_format(
+                            $c['total'],
+                            0,
+                            '',
+                            ' '
+                        ) ?>
+                    </td>
+
                 </tr>
+
             <?php endforeach; ?>
+
         </table>
 
     </div>
 
-    <!-- ========================= -->
-    <!-- 🟢 UR22 -->
-    <!-- ========================= -->
+
+
     <div class="section">
 
         <h2>🟢 UR22 — Classement</h2>
 
-        <table>
+        <table class="ranking">
+
             <tr>
                 <th>#</th>
                 <th>Club</th>
                 <th>N2</th>
-                <th>N1-CDF</th>
-                <th>#Img</th>
+                <th>N1+CDF</th>
+                <th>Images</th>
                 <th>Total</th>
             </tr>
 
+
             <?php foreach ($urClubs as $c): ?>
+
                 <tr>
-                    <td><?= $c['rang'] ?></td>
-                    <td><?= esc($c['nom']) ?></td>
-                    <td><?= number_format($c['N2']) ?></td>
-                    <td><?= number_format($c['CDF']) ?></td>
-                    <td><?= $c['total_images'] ?></td>
-                    <td><strong><?= number_format($c['points']) ?></strong></td>
+
+                    <td class="rank-col">
+                        <span class="rank-badge">
+                            <?= $c['rang'] ?>
+                        </span>
+                    </td>
+
+                    <td class="club-col">
+                        <?= mb_strimwidth(
+                            esc((string)$c['nom']),
+                            0,
+                            42,
+                            '…'
+                        ) ?>
+                    </td>
+
+                    <td class="num-col">
+                        <?= number_format(
+                            $c['N2'],
+                            0,
+                            '',
+                            ' '
+                        ) ?>
+                    </td>
+
+                    <td class="num-col">
+                        <?= number_format(
+                            $c['N1_CDF'],
+                            0,
+                            '',
+                            ' '
+                        ) ?>
+                    </td>
+
+                    <td class="num-col">
+                        <?= number_format(
+                            $c['total_images'],
+                            0,
+                            '',
+                            ' '
+                        ) ?>
+                    </td>
+
+                    <td class="num-col total-col">
+                        <?= number_format(
+                            $c['points'],
+                            0,
+                            '',
+                            ' '
+                        ) ?>
+                    </td>
+
                 </tr>
+
             <?php endforeach; ?>
+
         </table>
 
     </div>
 
-    <!-- ========================= -->
-    <!-- 🟣 MATRICE -->
-    <!-- ========================= -->
-    <div class="section">
 
-        <h2>🟣 Répartition compétitions</h2>
 
-        <?php
-        $clubs = [];
-        foreach ($matrix as $comp => $data) {
-            foreach ($data as $club => $p) {
-                $clubs[$club] = true;
-            }
+    <?php
+    function renderMatrix(
+        $title,
+        $matrix,
+        $clubs,
+        $clubMap
+    ) {
+
+        if (empty($matrix)) return;
+
+        $totaux = [];
+
+        foreach ($clubs as $club) {
+            $totaux[$club] = 0;
         }
-        $clubs = array_keys($clubs);
-        sort($clubs);
-        ?>
+    ?>
 
-        <table>
-            <tr>
-                <th>Compétition</th>
-                <?php foreach ($clubs as $club): ?><th><?= $club ?></th><?php endforeach; ?>
-            </tr>
+        <div class="section">
 
-            <?php foreach ($matrix as $comp => $data): ?>
-                <tr>
-                    <td class="small"><?= esc($comp) ?></td>
-                    <?php foreach ($clubs as $club): ?>
-                        <td><?= isset($data[$club]) ? number_format($data[$club]) : '' ?></td>
+            <h2><?= $title ?></h2>
+
+            <div class="matrix-wrap">
+
+                <table class="matrix">
+
+                    <tr>
+
+                        <th>Compétition</th>
+                        <th>Lauréat</th>
+
+                        <?php foreach ($clubs as $club): ?>
+
+                            <th>
+                                <span class="club-chip club-<?= $club ?>">
+                                    <?= $club ?>
+                                </span>
+                            </th>
+
+                        <?php endforeach; ?>
+
+                    </tr>
+
+
+                    <?php foreach ($matrix as $comp => $data): ?>
+
+                        <tr>
+
+                            <td>
+                                <?= esc($comp) ?>
+                            </td>
+
+                            <td>
+
+                                <?php
+                                $winner =
+                                    $data['winner_club'] ?? '';
+                                ?>
+
+                                <?= esc(
+                                    $data['winner_author']
+                                        ?? ($clubMap[$winner] ?? '—')
+                                ) ?>
+
+                                <?php if ($winner): ?>
+                                    <br>
+                                    <span class="club-chip club-<?= $winner ?>">
+                                        <?= $winner ?>
+                                    </span>
+                                <?php endif; ?>
+
+                            </td>
+
+
+                            <?php foreach ($clubs as $club): ?>
+
+                                <?php
+                                $v =
+                                    $data['scores'][$club]
+                                    ?? '';
+
+                                if ($v !== '') {
+                                    $totaux[$club] += $v;
+                                }
+                                ?>
+
+                                <td class="<?= $v !== '' ? 'active' : '' ?>">
+
+                                    <?= $v !== ''
+
+                                        ? number_format(
+                                            $v,
+                                            0,
+                                            '',
+                                            ' '
+                                        )
+
+                                        : '' ?>
+
+                                </td>
+
+                            <?php endforeach; ?>
+
+                        </tr>
+
                     <?php endforeach; ?>
-                </tr>
-            <?php endforeach; ?>
-        </table>
 
-        <div class="legend">
-            <b>Légende :</b><br>
-            <?php foreach ($clubs as $club): ?>
-                <?= $club ?> → <?= $clubMap[$club] ?? '—' ?><br>
-            <?php endforeach; ?>
+
+                    <tr>
+
+                        <th colspan="2">
+                            Totaux
+                        </th>
+
+                        <?php foreach ($clubs as $club): ?>
+                            <th>
+                                <?= number_format(
+                                    $totaux[$club],
+                                    0,
+                                    '',
+                                    ' '
+                                ) ?>
+                            </th>
+                        <?php endforeach; ?>
+
+                    </tr>
+
+                </table>
+
+            </div>
+
+
+            <div class="legend">
+
+                <b>Légende clubs</b>
+
+                <div class="legend-grid">
+
+                    <?php foreach ($clubs as $club): ?>
+
+                        <div class="legend-item">
+
+                            <span class="club-chip club-<?= $club ?>">
+                                <?= $club ?>
+                            </span>
+
+                            <span>
+                                <?= $clubMap[$club] ?? ('Club ' . $club) ?>
+                            </span>
+
+                        </div>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+            </div>
+
         </div>
 
-    </div>
+    <?php } ?>
 
-    <!-- ========================= -->
-    <!-- 🔴 JUGEMENT -->
-    <!-- ========================= -->
-    <div class="section">
 
-        <h2>🔥 Images clivantes</h2>
-        <p class="small">Fortes divergences entre juges</p>
+    <?php
+    renderMatrix(
+        '🟣 Répartition compétitions nationales',
+        $matrixNational,
+        $clubs,
+        $clubMap
+    );
 
-        <?php renderImages($jugement['top_clivantes'] ?? [], 'Clivante'); ?>
-
-        <h2>🤝 Images consensuelles</h2>
-        <p class="small">Accord global</p>
-
-        <?php renderImages($jugement['top_consensuelles'] ?? [], 'Consensuelle'); ?>
-
-        <h2>⚖️ Juge décisif</h2>
-
-        <?php renderImages($jugement['top_juge_decisif'] ?? [], 'Juge'); ?>
-
-    </div>
-
-    <!-- ========================= -->
-    <!-- ✨ WOW -->
-    <!-- ========================= -->
-    <div class="section">
-
-        <h2>✨ WOW (16+)</h2>
-
-        <?php
-        $galleryWow = array_map(fn($i) => $i['photo_url'] ?? $i['thumb_url'], $wow);
-        $json = htmlspecialchars(json_encode($galleryWow), ENT_QUOTES);
-        ?>
-
-        <div class="wow-grid">
-            <?php foreach ($wow as $i => $img): ?>
-                <img src="<?= $img['photo_url'] ?? $img['thumb_url'] ?>"
-                    onclick='openLightboxList(<?= $json ?>,<?= $i ?>)'>
-            <?php endforeach; ?>
-        </div>
-
-    </div>
+    renderMatrix(
+        '🟢 Répartition compétitions régionales',
+        $matrixRegional,
+        $clubs,
+        $clubMap
+    );
+    ?>
 
 </div>
-
-<!-- ========================= -->
-<!-- LIGHTBOX -->
-<!-- ========================= -->
-<div id="lightbox" class="lightbox">
-    <span class="lightbox-close" onclick="closeLightbox()">✕</span>
-    <div class="lightbox-nav left" onclick="prevImage()">‹</div>
-    <img id="lightbox-img">
-    <div class="lightbox-nav right" onclick="nextImage()">›</div>
-</div>
-
-<script>
-    let gallery = [],
-        current = 0,
-        autoPlay = null;
-
-    function openLightboxList(list, index) {
-        gallery = list;
-        current = index;
-        updateLightbox();
-        document.getElementById('lightbox').style.display = 'flex';
-    }
-
-    function updateLightbox() {
-        document.getElementById('lightbox-img').src = gallery[current];
-    }
-
-    function nextImage() {
-        current = (current + 1) % gallery.length;
-        updateLightbox();
-    }
-
-    function prevImage() {
-        current = (current - 1 + gallery.length) % gallery.length;
-        updateLightbox();
-    }
-
-    function closeLightbox() {
-        document.getElementById('lightbox').style.display = 'none';
-        clearInterval(autoPlay);
-    }
-</script>
-
-<?php
-/* ========================= */
-/* 🔴 FUNCTION */
-/* ========================= */
-function renderImages($images, $label)
-{
-    if (empty($images)) return;
-
-    $gallery = array_map(fn($i) => $i['photo_url'] ?? $i['thumb_url'], $images);
-    $json = htmlspecialchars(json_encode($gallery), ENT_QUOTES);
-
-    echo "<div class='jugement-grid'>";
-
-    foreach ($images as $i => $img) {
-
-        $src = $img['photo_url'] ?? $img['thumb_url'];
-        $title = esc($img['titre'] ?? '');
-
-        echo "<div class='jugement-card'>";
-
-        echo "<img src='$src' class='jugement-img'
-onclick='openLightboxList($json,$i)'>";
-
-        echo "<div class='jugement-content'>";
-        echo "<div class='jugement-title'>$title</div>";
-        echo "<div class='jugement-meta'>$label • {$img['competition_nom']}</div>";
-
-        echo "<div class='badge-notes'>";
-        foreach ($img['notes_array'] ?? [] as $n) {
-            $color = '#f39c12';
-            if ($n >= 16) $color = '#27ae60';
-            elseif ($n <= 8) $color = '#e74c3c';
-            echo "<span style='background:$color'>$n</span>";
-        }
-        echo "</div></div></div>";
-    }
-
-    echo "</div>";
-}
-?>
 
 <?= $this->endSection() ?>

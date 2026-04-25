@@ -4,71 +4,97 @@
 <head>
     <meta charset="UTF-8">
     <title>Analyse Clubs</title>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #f5f7fa;
-        }
-
-        h2 {
-            margin-top: 40px;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-top: 10px;
-            background: #fff;
-        }
-
-        th,
-        td {
-            padding: 8px 10px;
-            text-align: center;
-            border-bottom: 1px solid #ddd;
-        }
-
-        th {
-            background: #2c3e50;
-            color: white;
-        }
-
-        tr:nth-child(even) {
-            background: #f2f2f2;
-        }
-
-        .left {
-            text-align: left;
-        }
-
-        .highlight {
-            font-weight: bold;
-            color: #2c3e50;
-        }
-
-        .section {
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .debug {
-            background: #111;
-            color: #0f0;
-            padding: 10px;
-            font-size: 12px;
-            overflow-x: auto;
-        }
-    </style>
 </head>
+
+<style>
+    /* =========================
+   DASHBOARD PREMIUM
+========================= */
+
+    .club-right {
+        text-align: right;
+        font-weight: 600;
+    }
+
+    .club-chip {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 14px;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .club-603 {
+        background: #8e44ad;
+    }
+
+    .club-1233 {
+        background: #3498db;
+    }
+
+    .club-1677 {
+        background: #16a085;
+    }
+
+    .club-1771 {
+        background: #d35400;
+    }
+
+    .club-1816 {
+        background: #e74c3c;
+    }
+
+    .club-1829 {
+        background: #2ecc71;
+    }
+
+    .club-2159 {
+        background: #34495e;
+    }
+
+    .club-2268 {
+        background: #f39c12;
+    }
+
+    .club-2274 {
+        background: #c0392b;
+    }
+
+    .matrix td.active {
+        background: #eef6ff;
+        font-weight: 700;
+    }
+
+    .export-btn {
+        float: right;
+        background: #27ae60;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        margin-left: 12px;
+    }
+
+    thead.sticky th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+</style>
 
 <body>
 
-    <h1>📊 Analyse Clubs</h1>
+    <h1>
+        📊 Dashboard COLOC — Saison <?= $annee ?>
+
+        <a href="<?= site_url('dashboard/export') ?>"
+            class="export-btn">
+            📥 Export Excel
+        </a>
+
+    </h1>
 
     <!-- ========================= -->
     <!-- 🟢 CLASSEMENT REGIONAL -->
@@ -86,7 +112,7 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Club</th>
+                        <th class="club-right">Club</th>
                         <th>Points</th>
                     </tr>
                 </thead>
@@ -95,8 +121,8 @@
                     <?php foreach ($clubs as $c): ?>
                         <tr>
                             <td><?= $c['rank'] ?></td>
-                            <td><?= esc($c['club_nom']) ?></td>
-                            <td><?= number_format($c['points'], 0, ',', ' ') ?></td>
+                            <td class="club-right"><?= esc($c['club_nom']) ?></td>
+                            <td><?= number_format($c['points'], 0, '', ' ') ?></td>
                         </tr>
                     <?php endforeach; ?>
 
@@ -124,12 +150,12 @@
                 <?php foreach ($national as $c): ?>
                     <tr>
                         <td><?= $c['rank'] ?></td>
-                        <td><?= esc($c['club_nom']) ?></td>
+                        <td class="club-right"><?= esc($c['club_nom']) ?></td>
                         <td><?= $c['ur'] ?></td>
-                        <td><?= number_format($c['N2'], 0, ',', ' ') ?></td>
-                        <td><?= number_format($c['N1'], 0, ',', ' ') ?></td>
-                        <td><?= number_format($c['CDF'], 0, ',', ' ') ?></td>
-                        <td><strong><?= number_format($c['total'], 0, ',', ' ') ?></strong></td>
+                        <td><?= number_format($c['N2'], 0, '', ' ') ?></td>
+                        <td><?= number_format($c['N1'], 0, '', ' ') ?></td>
+                        <td><?= number_format($c['CDF'], 0, '', ' ') ?></td>
+                        <td><strong><?= number_format($c['total'], 0, '', ' ') ?></strong></td>
                     </tr>
                 <?php endforeach; ?>
 

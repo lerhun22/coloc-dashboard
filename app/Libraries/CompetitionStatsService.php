@@ -84,4 +84,32 @@ class CompetitionStatsService
             ->where('competitions_id', $competitionId)
             ->countAllResults() > 0;
     }
+
+    private function getCompetitionWinners(): array
+    {
+        $db = \Config\Database::connect();
+
+        $rows = $db->query("
+SELECT
+c.id competition_id,
+a.nom auteur,
+cl.id club_id
+FROM classements clt
+JOIN auteurs a ON a.id=clt.auteur_id
+JOIN clubs cl ON cl.id=a.club_id
+JOIN competitions c ON c.id=clt.competition_id
+WHERE clt.place=1
+")->getResultArray();
+
+        $out = [];
+
+        foreach ($rows as $r) {
+            $out[$r['competition_id']] = [
+                'winner_name' => $r['auteur'],
+                'club_id_winner' => $r['club_id']
+            ];
+        }
+
+        return $out;
+    }
 }
