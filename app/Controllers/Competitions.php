@@ -124,12 +124,33 @@ class Competitions extends BaseController
                 $competition['performance_level'] = 'low';
             }
         }
+        /*
+ =========================================================
+ 🎯 FILTRE PAR UR UTILISATEUR
+ Nationales + UR utilisateur uniquement
+ =========================================================
+ */
+        $competitions_list = array_values(
+            array_filter(
+                $competitions_list,
+                function ($c) use ($userUr) {
 
+                    // conserver les compétitions nationales
+                    if (empty($c['urs_id'])) {
+                        return true;
+                    }
+
+                    // conserver uniquement l'UR utilisateur (.env)
+                    return (int)$c['urs_id'] === $userUr;
+                }
+            )
+        );
         /*
     =========================================================
     🎨 DATA VIEW
     =========================================================
     */
+
         $this->data['competitions_list']   = $competitions_list;
         $this->data['userUr']              = $userUr;
         $this->data['activeCompetitionId'] = session('activeCompetitionId');

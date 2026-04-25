@@ -189,15 +189,10 @@
     // =========================
     document.addEventListener('DOMContentLoaded', () => {
 
-        loadFilters();
+        currentMode = 'regional';
+        currentUR = "<?= $defaultUR ?>";
 
-        // 🔥 fallback si rien en storage
-        if (!currentMode) {
-            currentMode = 'regional';
-            currentUR = "<?= $defaultUR ?>";
-        }
-
-        console.log("INIT:", currentMode, currentUR);
+        saveFilters();
 
         setActiveButton(currentMode, currentUR);
         applyFilters();

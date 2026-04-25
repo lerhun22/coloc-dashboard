@@ -183,7 +183,7 @@ class Home extends BaseController
 
         $zip->process($competition);
 
-        service('classement')->compute($id, true);
+        //service('classement')->compute($id, true);
 
         return ['code' => 0];
     }
@@ -256,7 +256,8 @@ class Home extends BaseController
 
             $count++;
         }
-        service('classement')->compute($competitions['id']);
+
+        //service('classement')->compute($competitions['id']);
 
         return ['code' => 0];
     }

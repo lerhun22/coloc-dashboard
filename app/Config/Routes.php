@@ -115,6 +115,8 @@ TEST
 
 $routes->get('compute', 'Home::index');
 
+$routes->get('compute/(:num)', 'Home::compute/$1');
+
 $routes->get('test/run', fn() => print("TEST OK"));
 
 

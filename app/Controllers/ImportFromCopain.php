@@ -338,6 +338,7 @@ class ImportFromCopain extends BaseController
         }
     }
 
+
     public function importOne($id)
     {
         $id = (int)$id;
@@ -377,7 +378,14 @@ class ImportFromCopain extends BaseController
 
         try {
 
+            session_write_close();
+
             $result = $importer->importCompetition($id, $typeCopain, 1);
+
+            log_message(
+                'debug',
+                '[IMPORT DB OK] ' . json_encode($result)
+            );
 
             if (($result['code'] ?? 1) != 0) {
 
@@ -405,6 +413,11 @@ class ImportFromCopain extends BaseController
             $model = new \App\Models\CompetitionModel();
             $competition = $model->find($id);
 
+            // log_message(
+            //     'debug',
+            //     'COMP=' . print_r($competition, true)
+            // );
+
             /*
         --------------------------------------------------
         ✅ RESPONSE
@@ -419,6 +432,8 @@ class ImportFromCopain extends BaseController
         } catch (\Throwable $e) {
 
             log_message('error', '[IMPORT DB EXCEPTION] ' . $e->getMessage());
+
+
 
             return $this->response->setJSON([
                 'status' => 'error',
