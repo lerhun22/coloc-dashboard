@@ -4,8 +4,9 @@ namespace App\Services;
 
 class DashboardURService
 {
-    public function build(array $rows, int $ur = 22): array
+    public function build(array $rows, ?int $ur = null): array
     {
+        $ur ??= currentUR();
         /*
         ============================================================
         1. Agrégation clubs
@@ -153,7 +154,8 @@ class DashboardURService
         */
         $matrices =
             $this->buildCompetitionMatrices(
-                $rows
+                $rows,
+                $ur
             );
 
         $clubColumns =
@@ -219,6 +221,22 @@ compléter depuis matrices
             }
         }
 
+        /*
+        ============================================================
+        9. observatoire clubs
+        ============================================================
+        */
+
+        $clubObservatory =
+            $this->buildClubObservatory(
+                $urClubs
+            );
+
+        $obsSummary =
+            $this->buildObservatorySummary(
+                $clubObservatory
+            );
+
         return [
 
             'classementClubs'
@@ -255,6 +273,9 @@ compléter depuis matrices
             => $clubColumns,
 
             'clubLabels' => $clubLabels,
+
+            'clubObservatory' => $clubObservatory,
+            'obsSummary'      => $obsSummary,
         ];
     }
 
@@ -265,15 +286,131 @@ compléter depuis matrices
     ============================================================
     */
 
-    private function aggregateByClub(array $rows): array
-    {
+    private function buildClubObservatory(
+        array $urClubs
+    ): array {
+        $totalImages =
+            array_sum(
+                array_column(
+                    $urClubs,
+                    'total_images'
+                )
+            );
+
+        $totalPoints =
+            array_sum(
+                array_column(
+                    $urClubs,
+                    'points'
+                )
+            );
+
+        foreach ($urClubs as &$c) {
+
+            $partImages =
+                $totalImages
+                ? ($c['total_images'] / $totalImages) * 100
+                : 0;
+
+            $partPoints =
+                $totalPoints
+                ? ($c['points'] / $totalPoints) * 100
+                : 0;
+
+            $conversion =
+                $partImages > 0
+                ? ($partPoints / $partImages) * 100
+                : 100;
+
+            $c['part_images'] =
+                round($partImages, 2);
+
+            $c['part_points'] =
+                round($partPoints, 2);
+
+            $c['conversion'] =
+                round($conversion, 1);
+
+            $c['motor'] =
+                round(
+                    ($partImages + $partPoints) / 2,
+                    2
+                );
+
+            /*
+        🔥 manquait ici
+        */
+            $c['observatory_score'] =
+                round(
+                    $c['conversion']
+                        +
+                        ($c['elite_bonus'] ?? 0),
+                    1
+                );
+        }
+
+        unset($c);
+
+        usort(
+            $urClubs,
+            fn($a, $b) =>
+            $b['observatory_score']
+                <=>
+                $a['observatory_score']
+        );
+
+        foreach ($urClubs as $i => &$c) {
+            $c['rang_obs'] = $i + 1;
+        }
+
+        unset($c);
+
+        return $urClubs;
+    }
+
+    private function buildObservatorySummary(
+        array $clubs
+    ): array {
+
+        return [
+
+            'weight' => $clubs[0]['part_images'] ?? 0,
+
+            'conversion' => round(
+                array_sum(
+                    array_column($clubs, 'conversion')
+                ) / max(1, count($clubs)),
+                1
+            ),
+
+            'motor' => $clubs[0]['motor'] ?? 0
+
+        ];
+    }
+
+    /*
+============================================================
+Agrégation clubs
+============================================================
+*/
+
+    private function aggregateByClub(
+        array $rows
+    ): array {
         $clubs = [];
+
+        /*
+    ==========================
+    agrégation brute
+    ==========================
+    */
 
         foreach ($rows as $r) {
 
             $id = (int)$r['club_id'];
 
             if (!isset($clubs[$id])) {
+
                 $clubs[$id] = [
                     'club_id' => $id,
                     'nom' => $r['nom'],
@@ -281,21 +418,34 @@ compléter depuis matrices
                     'ur' => (int)$r['ur'],
 
                     'points' => 0,
+
                     'R' => 0,
                     'N2' => 0,
                     'N1' => 0,
                     'CDF' => 0,
 
-                    'total_images' => 0
+                    'total_images' => 0,
+
+                    'authors' =>
+                    (int)($r['authors'] ?? 0),
+
+                    'motor_authors' =>
+                    (int)($r['motor_authors'] ?? 0),
                 ];
             }
 
             $points = (float)$r['points'];
 
             $clubs[$id]['points'] += $points;
-            $clubs[$id]['total_images'] += (int)($r['total_images'] ?? 0);
 
-            $level = strtoupper(trim((string)($r['level'] ?? '')));
+            $clubs[$id]['total_images']
+                += (int)($r['total_images'] ?? 0);
+
+            $level = strtoupper(
+                trim(
+                    (string)($r['level'] ?? '')
+                )
+            );
 
             switch ($level) {
 
@@ -312,18 +462,230 @@ compléter depuis matrices
                     break;
 
                 case 'CDF':
+                case 'COUPE':
                     $clubs[$id]['CDF'] += $points;
                     break;
             }
         }
 
-        foreach ($clubs as &$club) {
-            $club['N1_CDF'] = $club['N1'] + $club['CDF'];
+
+        /*
+    ==========================
+    métriques observatoire
+    ==========================
+    */
+
+        $totalImages =
+            array_sum(
+                array_column(
+                    $clubs,
+                    'total_images'
+                )
+            );
+
+        $totalPoints =
+            array_sum(
+                array_column(
+                    $clubs,
+                    'points'
+                )
+            );
+
+
+        foreach ($clubs as &$c) {
+
+            $c['weight_pct'] =
+                $totalImages
+                ? round(
+                    100 *
+                        $c['total_images'] /
+                        $totalImages,
+                    2
+                )
+                : 0;
+
+
+            $pointsPct =
+                $totalPoints
+                ? (
+                    100 *
+                    $c['points'] /
+                    $totalPoints
+                )
+                : 0;
+
+
+            $c['conversion'] =
+                $c['weight_pct'] > 0
+                ? round(
+                    (
+                        $pointsPct
+                        /
+                        $c['weight_pct']
+                    ) * 100,
+                    1
+                )
+                : 100;
+
+
+            $authors = max(
+                1,
+                (int)$c['authors']
+            );
+
+            $c['intensity'] = round(
+                $c['total_images'] /
+                    $authors,
+                1
+            );
+
+
+            /*
+        nouveau depth index
+        */
+            $c['depth_pct'] =
+                $c['authors'] > 0
+                ? round(
+                    100 *
+                        $c['motor_authors']
+                        /
+                        $c['authors'],
+                    1
+                )
+                : 0;
+
+
+            /*
+        bonus élite
+        */
+            $bonus = 0;
+
+            if ($c['N1'] > 0) {
+                $bonus += 3;
+            }
+
+            if ($c['CDF'] > 0) {
+                $bonus += 5;
+            }
+
+            $c['elite_bonus'] = $bonus;
+
+
+            $depthBonus = 0;
+
+            if ($c['depth_pct'] >= 70) {
+                $depthBonus = 5;
+            } elseif ($c['depth_pct'] >= 50) {
+                $depthBonus = 3;
+            } elseif ($c['depth_pct'] >= 30) {
+                $depthBonus = 1;
+            }
+
+            $c['global_index'] = round(
+                $c['conversion']
+                    +
+                    $bonus
+                    +
+                    $depthBonus,
+                1
+            );
+
+
+            /*
+        profils enrichis
+        */
+
+            /*
+============================================================
+Typologie finale V1 (stable)
+============================================================
+*/
+
+            /* faibles conversions -> toujours avant tout */
+            if (
+                $c['conversion'] < 99
+            ) {
+
+                $c['profile'] = 'Sous potentiel';
+            }
+
+            /* gros clubs + élite distribuée */ elseif (
+                $c['weight_pct'] >= 10 &&
+                $c['conversion'] >= 102 &&
+                $c['depth_pct'] >= 35
+            ) {
+
+                $c['profile'] = 'Locomotive élite';
+            }
+
+            /* excellence largement répartie */ elseif (
+                $c['depth_pct'] >= 60 &&
+                $c['conversion'] >= 100
+            ) {
+
+                $c['profile'] = 'Elite diffuse';
+            }
+
+            /* un ou peu de moteurs tirent le club */ elseif (
+                $c['motor_authors'] >= 1 &&
+                $c['depth_pct'] < 20 &&
+                $c['conversion'] >= 100
+            ) {
+
+                $c['profile'] = 'Elite concentrée';
+            }
+
+            /* gros collectif structurant */ elseif (
+                $c['weight_pct'] >= 10 &&
+                $c['conversion'] >= 100
+            ) {
+
+                $c['profile'] = 'Moteur collectif';
+            }
+
+            /* pas de relais élite : pas convertisseur premium */ elseif (
+                $c['motor_authors'] == 0
+            ) {
+
+                $c['profile'] = 'Equilibré';
+            }
+
+            /* petits clubs très efficients */ elseif (
+                $c['conversion'] >= 103 &&
+                $c['weight_pct'] < 5
+            ) {
+
+                $c['profile'] = 'Convertisseur';
+            } else {
+
+                $c['profile'] = 'Equilibré';
+            }
+
+            $c['N1_CDF'] =
+                $c['N1']
+                +
+                $c['CDF'];
         }
+
+        unset($c);
+
+
+        usort(
+            $clubs,
+            fn($a, $b) =>
+            $b['global_index']
+                <=>
+                $a['global_index']
+        );
+
+        foreach ($clubs as $i => &$c) {
+            $c['rang_obs'] = $i + 1;
+        }
+
+        unset($c);
 
         return array_values($clubs);
     }
-
     /*
     ============================================================
     Matrices compétitions
@@ -337,14 +699,17 @@ compléter depuis matrices
 
         foreach ($rows as $r) {
 
-            $comp = trim($r['competition_nom']);
-            $club = (string)$r['numero'];
+            $comp   = trim((string)$r['competition_nom']);
+            $club   = (string)$r['numero'];
             $points = (float)$r['points'];
 
             $level = strtoupper(
                 trim((string)($r['level'] ?? ''))
             );
 
+            /*
+        référence correcte
+        */
             if ($level === 'REGIONAL') {
                 $target = &$regional;
             } else {
@@ -352,32 +717,70 @@ compléter depuis matrices
             }
 
             if (!isset($target[$comp])) {
+
                 $target[$comp] = [
-                    'winner_club' => null,
-                    'winner_author' => '—',
+                    'winner_club'   => null,
+                    'winner_author' => null,
                     'winner_points' => 0,
-                    'scores' => []
+                    'scores'        => []
                 ];
             }
 
-            if (!isset($target[$comp]['scores'][$club])) {
+            /*
+        cumul points club
+        */
+            if (
+                !isset(
+                    $target[$comp]['scores'][$club]
+                )
+            ) {
                 $target[$comp]['scores'][$club] = 0;
             }
 
-            $target[$comp]['scores'][$club] += $points;
+            $target[$comp]['scores'][$club]
+                += $points;
 
+
+            /*
+        club gagnant
+        */
             if (
-                $target[$comp]['scores'][$club] >
+                $target[$comp]['scores'][$club]
+                >
                 $target[$comp]['winner_points']
             ) {
+
                 $target[$comp]['winner_points'] =
                     $target[$comp]['scores'][$club];
 
-                $target[$comp]['winner_club'] = $club;
+                $target[$comp]['winner_club'] =
+                    $club;
 
-                $target[$comp]['winner_author'] = $r['nom'];
+                /*
+            essayer plusieurs champs auteur
+            */
+                $target[$comp]['winner_author'] =
+                    $r['participant_nom']
+                    ?? $r['participant_name']
+                    ?? $r['author_name']
+                    ?? $r['auteur_nom']
+                    ?? null;
+            }
+
+
+            /*
+        fallback nom club
+        */
+            if (
+                empty($target[$comp]['winner_author'])
+            ) {
+                $target[$comp]['winner_author'] =
+                    $r['nom'] ?? null;
             }
         }
+
+        ksort($national);
+        ksort($regional);
 
         return [
             'national' => $national,

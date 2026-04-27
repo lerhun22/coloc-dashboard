@@ -18,8 +18,9 @@ namespace App\Services;
 class CompetitionStatsService
 {
 
-    public function compute(array $rows, bool $debug = false, int $urTarget = 22): array
+    public function compute(array $rows, bool $debug = false, ?int $urTarget = null): array
     {
+        $urTarget ??= currentUR();
         // =====================================================
         // 🧱 1. AGRÉGATION PAR NIVEAU
         // =====================================================

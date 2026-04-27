@@ -60,8 +60,8 @@ class DataProvider
             // 🔥 normalisation métier
             $r['level'] = $r['level'] ?? 'UNKNOWN';
 
-            // 🔥 indicateur UR22
-            $r['is_ur22'] = ($r['ur'] === 22);
+            // 🔥 indicateur UR
+            $r['is_current_ur'] = ($r['ur'] === currentUR());
         }
 
         return $rows;

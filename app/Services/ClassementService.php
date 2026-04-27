@@ -135,7 +135,7 @@ class ClassementService
             }
 
             // filtre UR si demandé
-            if ($urOnly && isset($r['ur']) && (int)$r['ur'] !== 22) {
+            if ($urOnly && isset($r['ur']) && (int)$r['ur'] !== currentUR()) {
                 continue;
             }
 

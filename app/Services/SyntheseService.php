@@ -57,7 +57,7 @@ class SyntheseService
 
                     'images' => 0,
                     'clubs' => [],
-                    'clubs_ur22' => [],
+                    'clubs_ur' => [],
                 ];
             }
 
@@ -67,8 +67,8 @@ class SyntheseService
 
                 $competitions[$cid]['clubs'][$row['club_id']] = true;
 
-                if (!empty($row['is_ur22'])) {
-                    $competitions[$cid]['clubs_ur22'][$row['club_id']] = true;
+                if (!empty($row['is_ur'])) {
+                    $competitions[$cid]['clubs_ur'][$row['club_id']] = true;
                 }
             }
         }
@@ -81,9 +81,9 @@ class SyntheseService
         foreach ($competitions as &$c) {
 
             $c['nb_clubs'] = count($c['clubs']);
-            $c['nb_clubs_ur22'] = count($c['clubs_ur22']);
+            $c['nb_clubs_ur'] = count($c['clubs_ur']);
 
-            unset($c['clubs'], $c['clubs_ur22']);
+            unset($c['clubs'], $c['clubs_ur']);
         }
 
         /*

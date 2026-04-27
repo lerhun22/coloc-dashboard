@@ -246,10 +246,139 @@ function competition_debug_label(object $c): string
  */
 function comp_is_national(string $level): bool
 {
-    return in_array($level, ['N1', 'COUPE']);
+    return in_array($level, ['N2', 'N1', 'COUPE']);
 }
 
 function comp_is_regional(string $level): bool
 {
     return $level === 'REGIONAL';
+}
+
+/**
+ * ============================================================
+ * 🌍 CONTEXTE UR (SOURCE DE VÉRITÉ)
+ * ============================================================
+ */
+
+/*
+============================================================
+🌍 CONTEXTE UR / EAN HELPERS
+============================================================
+*/
+
+
+
+if (!function_exists('currentUR')) {
+
+    /**
+     * UR utilisateur courante
+     * source unique : .env
+     */
+    function currentUR(): int
+    {
+        return (int) env(
+            'copain.uruser',
+            22
+        );
+    }
+}
+
+if (!function_exists('currentURPrefix')) {
+
+    /**
+     * Préfixe EAN (2 digits)
+     * ex 12 -> "12"
+     * ex 3  -> "03"
+     */
+    function currentURPrefix(): string
+    {
+        return str_pad(
+            (string) currentUR(),
+            2,
+            '0',
+            STR_PAD_LEFT
+        );
+    }
+}
+
+
+
+if (!function_exists('eanClubPrefix')) {
+
+    function eanClubPrefix(
+        int $clubNumber
+    ): string {
+        return currentURPrefix()
+            .
+            str_pad(
+                (string)$clubNumber,
+                4,
+                '0',
+                STR_PAD_LEFT
+            );
+    }
+}
+
+
+if (!function_exists('eanClubNumber')) {
+
+    function eanClubNumber(
+        string $ean
+    ): int {
+        return (int) substr(
+            $ean,
+            2,
+            4
+        );
+    }
+}
+
+
+if (!function_exists('eanAuthorCode')) {
+
+    function eanAuthorCode(
+        string $ean
+    ): string {
+        return substr(
+            $ean,
+            6
+        );
+    }
+}
+
+
+if (!function_exists('detectCompetitionLevel')) {
+
+    function detectCompetitionLevel(
+        int $competitionId
+    ): string {
+        return strlen(
+            (string)$competitionId
+        ) === 4
+            ? 'REGIONAL'
+            : 'NATIONAL';
+    }
+}
+
+
+if (!function_exists('conversionProfile')) {
+
+    function conversionProfile(
+        float $conversion
+    ): string {
+        return match (true) {
+
+            $conversion >= 104
+            => 'Elite',
+
+            $conversion >= 101
+            => 'Forte',
+
+            $conversion >= 99
+            => 'Equilibrée',
+
+            default
+            => 'Sous potentiel'
+        };
+    }
 }

@@ -1,0 +1,279 @@
+## Audit FIL 2 — CompetitionService
+
+Très révélateur.
+
+### Diagnostic rapide :
+
+ceci n’est pas vraiment un *service métier*.
+
+C’est plutôt :
+
+```text id="tw87qk"
+SessionCompetitionContext
+```
+
+ou
+
+```text id="zhm4y8"
+CompetitionSessionStore
+```
+
+et ça change beaucoup la lecture architecture.
+
+---
+
+# 1. Problème de nommage ⚠️
+
+Nom actuel :
+
+```php id="x63f6y"
+CompetitionService
+```
+
+laisse penser :
+
+* logique métier FPF
+* règles concours
+* calculs
+* mapping
+
+Mais en réalité il fait :
+
+```text id="3hzk9m"
+session read/write
++ fetch active competition
+```
+
+ce n’est pas un service métier.
+
+Je mettrais audit :
+❌ nom trompeur.
+
+---
+
+# 2. Responsabilité mixte
+
+Il mélange :
+
+## état session
+
+```php id="6q6e5d"
+setActive()
+getId()
+clear()
+```
+
+et
+
+## accès données
+
+```php id="93r6jx"
+$model->find($id)
+```
+
+deux responsabilités.
+
+Devrait être séparé :
+
+```text id="s2fmpm"
+CompetitionContext
+- set active id
+- get active id
+
+CompetitionRepository/Model
+- find(id)
+```
+
+Sinon petit service "god object" en devenir.
+
+---
+
+# 3. Statique ⚠️
+
+```php id="l62w6q"
+public static function ...
+```
+
+Je mettrais drapeau jaune.
+
+Pourquoi :
+
+* difficile à mocker
+* global déguisé
+* couplage fort
+* rend les tests pénibles
+
+En audit architecture moderne :
+plutôt éviter.
+
+---
+
+# 4. Mais… il y a du bon
+
+Important :
+
+il a déjà implicitement fait émerger un concept métier utile :
+
+```text id="4rtq28"
+Active Competition Context
+```
+
+et ça c’est intéressant.
+
+On peut le formaliser.
+
+---
+
+# 5. Ce service devrait probablement devenir :
+
+```text id="go1bce"
+CompetitionContextService
+```
+
+avec responsabilité unique :
+
+```text id="h1e0ki"
+gérer la compétition active courante
+(session + résolution)
+```
+
+et BaseController consomme ça.
+
+Là on élimine une bonne partie du bruit.
+
+---
+
+## 6. La règle active est ici incomplète
+
+Actuellement :
+
+```php id="r9n5v8"
+si pas de session -> null
+```
+
+mais dans BaseController :
+
+* fallback active=1
+* synchronisation session
+
+donc règle coupée en deux.
+
+C’est exactement le problème signalé précédemment.
+
+Une seule règle devrait vivre ici :
+
+```text id="ynf6r2"
+résolution officielle active competition
+```
+
+pas moitié ici moitié controller.
+
+---
+
+# 7. Audit score
+
+| Critère               | État       |
+| --------------------- | ---------- |
+| Responsabilité unique | ⚠️ moyen   |
+| Nommage               | ❌          |
+| Testabilité           | ⚠️         |
+| Couplage              | ⚠️         |
+| Dette critique        | faible     |
+| Refactor rentable     | très élevé |
+
+---
+
+## Je classerais :
+
+```text id="f5vzaf"
+Pas à supprimer
+À renommer + recentrer
+```
+
+Pas un mauvais composant —
+juste mal défini.
+
+---
+
+## Cible probable
+
+Je viserais :
+
+```text id="z1vqun"
+CompetitionContextService
+  getActiveCompetition()
+  getActiveCompetitionId()
+  setActiveCompetition()
+  clearActiveCompetition()
+```
+
+et plus aucun :
+
+```php id="ztwktm"
+where('active',1)
+session fallback
+model->find()
+```
+
+éparpillés ailleurs.
+
+---
+
+## Très important pour FIL1/FIL2 alignement
+
+Il faut décider si "active competition" est :
+
+A.
+
+```text id="55aqoc"
+état technique session utilisateur
+```
+
+ou
+
+B.
+
+```text id="w8smbr"
+règle métier référentiel
+```
+
+ce n’est pas pareil.
+
+Je soupçonne :
+
+* "active" = contexte utilisateur
+* pas une règle Bible.
+
+Ça simplifie beaucoup.
+
+---
+
+## Backlog que je noterais
+
+```text id="fif84v"
+[ ] Renommer CompetitionService
+[ ] Supprimer statique (plus tard)
+[ ] Unifier toute la résolution active ici
+[ ] Sortir la logique du BaseController
+```
+
+---
+
+## Verdict
+
+```text id="78n9wr"
+Petit composant sain
+mal nommé
+responsabilités mélangées
+excellent candidat refactor léger
+```
+
+Et franchement… c’est plutôt rassurant.
+
+---
+
+### Mon intuition :
+
+le vrai morceau critique sera moins ce service que **CompetitionMapper / Registry / helpers competition** — c’est probablement là où se cache la vraie logique métier.
+
+Si tu veux, on peut auditer celui-là ensuite.

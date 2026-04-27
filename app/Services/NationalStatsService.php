@@ -4,6 +4,7 @@ namespace App\Services;
 
 use CodeIgniter\Database\BaseConnection;
 
+helper('competition');
 /**
  * =========================================================
  * 🇫🇷 NationalStatsService
@@ -47,8 +48,9 @@ class NationalStatsService
      * @param int $userUr
      * @return array
      */
-    public function getStats(int $competitionId, int $userUr = 22): array
+    public function getStats(int $competitionId, ?int $userUr = null): array
     {
+        $userUr ??= currentUR();
         $result = $this->getStatsBulk([$competitionId], $userUr);
 
         return $result[$competitionId] ?? [
@@ -67,8 +69,10 @@ class NationalStatsService
      * @param int $userUr
      * @return array
      */
-    public function getStatsBulk(array $competitionIds, int $userUr = 22): array
+    public function getStatsBulk(array $competitionIds, ?int $userUr = null): array
     {
+        $userUr ??= currentUR();
+
         if (empty($competitionIds)) {
             return [];
         }

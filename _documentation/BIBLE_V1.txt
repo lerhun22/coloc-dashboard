@@ -1,0 +1,1240 @@
+Excellent. On pose une **Bible V1** simple, sobre, version fondatrice (qu’on enrichira ensuite).
+
+# 📖 Bible métier COLOC / UR22 — V1
+
+## 1. Objet
+
+```text id="3vn8ek"
+Définir une source de vérité unique pour :
+- les compétitions
+- les règles métier
+- les KPI
+- les requêtes de référence
+- les principes d’architecture
+```
+
+But :
+
+```text id="jlwm61"
+Le code implémente la Bible.
+Le code ne définit pas la Bible.
+```
+
+C’est essentiel.
+
+---
+
+# 2. Domaine métier
+
+## Entité centrale
+
+```text id="5o2n4d"
+competition_meta
+```
+
+Rôle :
+
+* référentiel métier unique
+* dictionnaire de classification
+* source des KPI
+* couche d’abstraction entre imports et dashboard
+
+---
+
+## Classification officielle
+
+```text id="j6j0pn"
+Code 3 chiffres  -> National (N)
+Code 4 chiffres  -> Régional (R)
+
+Numéros réinitialisés chaque année.
+```
+
+Règle canonique :
+
+```text id="5y1lyq"
+La longueur du code détermine le niveau.
+```
+
+Pas de logique alternative.
+
+---
+
+# 3. Sources de données
+
+## Sources primaires
+
+```text id="9g8r2e"
+competitions_list
+rcompetitions_list
+règlements annuels concours
+```
+
+## Référentiel consolidé
+
+```text id="8w1n1w"
+competition_meta = source de vérité
+```
+
+Principe :
+
+```text id="74d2mr"
+Les sources alimentent competition_meta.
+Le dashboard lit competition_meta.
+```
+
+Jamais l’inverse.
+
+---
+
+# 4. Dictionnaire métier initial
+
+Minimum V1 :
+
+```text id="89vtjq"
+idCompetition
+annee
+titre
+niveau
+isNational
+isRegional
+isJudged
+dateJugement
+statut
+```
+
+Extensions futures possibles :
+
+* discipline
+* auteur / club metrics
+* historique participation
+* métadonnées import
+
+---
+
+# 5. KPI de référence
+
+Familles :
+
+## Participation
+
+```text id="k52ggn"
+clubs participants
+auteurs participants
+taux participation
+```
+
+## Activité concours
+
+```text id="c0vwjx"
+nombre concours
+concours jugés
+concours ouverts
+```
+
+## Performance
+
+```text id="eik46x"
+indicateurs UR
+comparaisons national/régional
+tendances annuelles
+```
+
+---
+
+# 6. Principes d’architecture
+
+## Source unique
+
+```text id="8ecjzh"
+Une source de vérité :
+competition_meta
+```
+
+---
+
+## Règle unique
+
+```text id="1fg2eh"
+Une règle métier
+=
+un seul endroit
+```
+
+---
+
+## Séparation responsabilités
+
+```text id="zjlwmv"
+Imports -> alimentation
+Services -> logique métier
+Controllers -> orchestration
+Views -> présentation uniquement
+```
+
+Aucune logique métier en vue.
+
+---
+
+# 7. SQL canonique
+
+Créer un catalogue :
+
+```text id="9hl4de"
+Chaque requête documentée avec :
+- nom
+- objectif
+- tables sources
+- KPI alimentés
+- dépendances
+```
+
+Ce sera la Bible SQL.
+
+---
+
+# 8. Dette technique à éliminer
+
+Interdits :
+
+```text id="fx0e4d"
+- règles dupliquées
+- classification hardcodée multiple
+- SQL métier dispersé
+- logique KPI en vue
+- sources concurrentes
+```
+
+---
+
+# 9. Évolution cible (V2)
+
+Backlog réservé :
+
+```text id="qhajdi"
+- competition_meta auto-alimenté
+- référentiel enrichi
+- services domaine dédiés
+- dashboards analytiques avancés
+```
+
+---
+
+## Doctrine fondatrice
+
+```text id="kv1c8j"
+competition_meta est le domaine.
+Le dashboard n'est qu'une projection.
+```
+
+Ça c’est presque une philosophie d’architecture.
+
+---
+
+Parfait — on ajoute le **chapitre SQL canonique**, et là la Bible commence à devenir vraiment solide.
+
+# 📖 Bible COLOC / UR22
+
+## Chapitre 10 — Catalogue SQL Canonique (V1)
+
+Principe :
+
+```text id="mabg8n"
+Une requête validée = une référence métier.
+Le SQL sert le domaine.
+Il ne redéfinit pas le métier.
+```
+
+---
+
+# Structure d’une fiche requête
+
+Chaque requête documentée ainsi :
+
+```text id="7yv79g"
+Nom
+Objectif
+Tables sources
+KPI alimentés
+Règles métier utilisées
+Dépendances
+Statut validation
+```
+
+---
+
+# 10.1 Requêtes cœur dashboard
+
+## Q001 — Comptage compétitions
+
+```sql
+SELECT COUNT(*) ...
+```
+
+Objet :
+
+```text id="n1rjq3"
+Nombre total concours par année
+National / Régional
+```
+
+Sources :
+
+```text id="2cux9n"
+competition_meta
+```
+
+Alimente :
+
+* volume activité
+* KPI concours
+
+---
+
+## Q002 — Participation clubs
+
+```sql
+...
+```
+
+Objet :
+
+```text id="dbn81m"
+Nombre clubs participants
+Taux de participation
+```
+
+Sources :
+
+* participations
+* clubs
+* competition_meta
+
+---
+
+## Q003 — Participation auteurs
+
+```sql
+...
+```
+
+Objet :
+
+```text id="pwy7yr"
+Auteurs uniques
+Volume participations
+```
+
+---
+
+## Q004 — Concours jugés
+
+```sql
+...
+```
+
+Utilise :
+
+```text id="wy1nsd"
+isJudged
+dateJugement
+```
+
+---
+
+# 10.2 Requêtes KPI dérivées
+
+Agrégations :
+
+```text id="6pdz9y"
+KPI engagement
+KPI tendances
+KPI comparatifs UR/National
+```
+
+Principe :
+
+```text id="rk4gh6"
+Un KPI dérivé ne réécrit jamais la logique source.
+Il compose.
+```
+
+Très important.
+
+---
+
+# 10.3 Convention de nommage
+
+Je proposerais :
+
+```text id="mjyb3r"
+Q001 Core counts
+Q010 Participation
+Q020 Rankings
+Q030 Trends
+Q040 Imports control
+```
+
+Et côté code :
+
+```text id="k2r8b0"
+sql/catalog/
+  q001_competition_count.sql
+  q010_club_participation.sql
+...
+```
+
+Magnifique pour maintenance.
+
+---
+
+# 10.4 Classification des requêtes
+
+Taguer :
+
+```text id="s4nmgh"
+CORE
+KPI
+IMPORT
+CONTROL
+EXPERIMENTAL
+```
+
+Et seules les CORE/KPI entrent dans la Bible.
+
+---
+
+# 10.5 Règle d’or SQL
+
+```text id="8g96qn"
+Pas de logique métier cachée dans SQL.
+Le SQL lit des règles.
+Il ne les invente pas.
+```
+
+Énorme différence.
+
+---
+
+# 10.6 Requêtes contrôle / audit
+
+Très utile :
+
+## Contrôle cohérence classifications
+
+```sql
+-- 3 digits -> N
+-- 4 digits -> R
+```
+
+Audit automatique :
+
+```text id="7kqlyf"
+détecter anomalies référentiel
+```
+
+Ça je le mettrais absolument.
+
+---
+
+# 10.7 Matrice de traçabilité
+
+Le bijou :
+
+```text id="1e2e7q"
+KPI -> Requête -> Tables -> Règle métier
+```
+
+Exemple :
+
+```text id="8xx8p2"
+Taux participation
+ -> Q010
+ -> participations + clubs
+ -> règle calcul engagement
+```
+
+On remonte toute chaîne.
+
+Très DDD / très propre.
+
+---
+
+# Structure Bible actuelle
+
+On a maintenant :
+
+```text id="4g2j7j"
+01 Domaine métier
+02 Classification
+03 Sources de vérité
+04 Dictionnaire
+05 KPI
+06 Principes architecture
+07 Dette technique
+08 Evolution cible
+09 Doctrine
+10 Catalogue SQL
+```
+
+Franchement… c’est déjà une vraie architecture documentaire.
+
+---
+
+## Étape suivante logique (et probablement la plus utile)
+
+Je ferais ensuite :
+
+```text id="z5e1ef"
+Chapitre 11
+Cartographie Services / Controllers / Libraries
+```
+
+Parfait — on arrive au morceau qui relie la théorie au code.
+
+# 📖 Bible COLOC / UR22
+
+## Chapitre 11 — Cartographie applicative (Services / Controllers / Libraries)
+
+Objectif :
+
+```text id="5ekqvh"
+Mapper le code existant contre le modèle métier.
+Identifier :
+- ce qui implémente la Bible
+- ce qui la contourne
+- ce qui doit être refactoré
+```
+
+---
+
+# 11.1 Architecture logique cible
+
+```text id="dr4yl4"
+Imports
+ ↓
+competition_meta
+ ↓
+Domain Services
+ ↓
+Controllers
+ ↓
+Views
+```
+
+Principe :
+
+```text id="6wfw55"
+Le métier descend.
+Les vues ne décident rien.
+```
+
+---
+
+# 11.2 Couche Controllers
+
+Mission :
+
+```text id="55aywp"
+Orchestration uniquement
+Pas de logique métier
+Pas de calcul KPI
+Pas de règles de classification
+```
+
+---
+
+## Inventaire initial
+
+```text id="jlwmqq"
+DashboardController
+ImportController
+CompetitionController
+BaseController
+```
+
+Audit grille :
+
+```text id="2svq4m"
+✔ orchestration pure
+⚠ métier partiel
+✖ dette technique
+```
+
+---
+
+### Règles interdites en controller
+
+```text id="7d3wy0"
+if code length = 3 => N
+calcul KPI inline
+SQL métier complexe
+logique duplication service
+```
+
+Si présent → à sortir.
+
+---
+
+# 11.3 Couche Services
+
+Cœur du domaine.
+
+Services visés :
+
+```text id="s6c1dh"
+CompetitionService
+KpiService
+StatsService
+ImportService
+```
+
+Rôle :
+
+```text id="c4x3rx"
+implémenter règles métier
+```
+
+Pas les controllers.
+
+---
+
+## Futur service pivot possible
+
+J’aime beaucoup celui-là :
+
+```text id="4ttzrg"
+CompetitionCatalogService
+```
+
+Il centraliserait :
+
+* classification
+* lecture competition_meta
+* règles concours
+
+Quasi domaine pur.
+
+---
+
+# 11.4 Libraries / Helpers
+
+Inventaire :
+
+```text id="kn8ckk"
+CompetitionMapper
+Helpers KPI
+Import mappers
+```
+
+Audit :
+
+```text id="36s9it"
+Le helper aide.
+Le service décide.
+```
+
+Très important.
+
+---
+
+# 11.5 SQL / Repository Layer
+
+À cartographier :
+
+```text id="gj8d48"
+queries
+repositories
+imports sql
+agrégations KPI
+```
+
+Question audit :
+
+```text id="l2wk0r"
+Le SQL exécute-t-il
+ou décide-t-il ?
+```
+
+Si "décide" → danger.
+
+---
+
+# 11.6 Couche Views
+
+Doctrine :
+
+```text id="3xiz9e"
+Vue = projection.
+Jamais métier.
+```
+
+Toléré :
+
+* affichage
+* formatage
+* composants UI
+
+Interdit :
+
+```text id="vk5a4u"
+classification N/R
+calcul KPI
+règles métier
+jointures implicites
+```
+
+---
+
+# 11.7 Matrice audit code
+
+Pour chaque composant :
+
+```text id="66h3ho"
+Composant
+Rôle attendu
+Rôle réel
+Alignement
+Dette
+Action
+```
+
+Exemple :
+
+```text id="vggvq8"
+CompetitionMapper
+Rôle attendu :
+classification centralisée
+
+Rôle réel :
+(ok à vérifier)
+
+Action :
+conserver / refactor
+```
+
+---
+
+# 11.8 Zones critiques probables
+
+Mon intuition :
+
+```text id="ow9y7h"
+1 Controllers
+2 SQL dispersé
+3 vues avec métier implicite
+4 duplication classification
+```
+
+Souvent c’est là.
+
+---
+
+# 11.9 Cible finale
+
+On vise :
+
+```text id="2nys34"
+Controllers fins
+Services riches
+SQL discipliné
+Views passives
+competition_meta central
+```
+
+Très propre.
+
+---
+
+## Schéma cible
+
+```text id="vg9p7r"
+competition_meta
+   ↓
+CompetitionCatalogService
+   ↓
+KpiService
+   ↓
+DashboardController
+   ↓
+Views
+```
+
+Là tu as presque une architecture domaine.
+
+---
+
+# État de la Bible
+
+```text id="0z4eu4"
+01 Domaine
+02 Classification
+03 Sources
+04 Dictionnaire
+05 KPI
+06 Principes
+07 Dette
+08 Evolution
+09 Doctrine
+10 SQL canonique
+11 Cartographie applicative
+```
+
+Franchement, ça devient une vraie doc d’architecture.
+
+---
+
+## Étape suivante (très utile)
+
+Je verrais :
+
+```text id="7ifx7l"
+Chapitre 12
+Audit réel du code existant
+(fichier par fichier)
+```
+
+Et là on peut prendre par exemple `CompetitionMapper`, `DashboardController`, `KpiService` et voir s’ils collent à la Bible.
+
+Non — **ne pas corriger, adapter dans la Bible**. Au contraire… ce fichier est presque déjà un chapitre de la Bible matérialisé en code. Très intéressant.
+
+Ce que je vois : `CompetitionRegistry` n’est pas juste une config, c’est quasiment un **Domain Registry**.
+
+Je l’intégrerais dans la Bible comme **Chapitre 13 — Référentiel métier codé**.
+
+## 📖 Ajouter (pas remplacer)
+
+### 13. CompetitionRegistry = implémentation du référentiel métier
+
+Doctrine :
+
+```text id="dhnm9v"
+La Bible décrit le domaine.
+CompetitionRegistry implémente ce domaine.
+```
+
+Pas de contradiction.
+
+---
+
+# Ce que ça apporte (énorme)
+
+Tu as déjà formalisé :
+
+## Niveaux hiérarchiques
+
+```text id="4g5d4r"
+REGIONAL
+N2
+N1
+COUPE
+DIRECT
+```
+
+On dépasse la simple règle 3 digits / 4 digits.
+
+On a maintenant deux couches :
+
+```text id="k5z4y7"
+Classification administrative :
+3 digits / 4 digits
+
+Classification métier :
+REGIONAL / N2 / N1 / COUPE
+```
+
+Complémentaires, pas concurrentes.
+
+Très important.
+
+---
+
+## Progressions / relégations
+
+Là tu as du vrai métier :
+
+```php
+promotion
+relegation
+top
+from
+```
+
+Ça c’est du domaine pur.
+
+Je le mettrais comme :
+
+```text id="u6qzwd"
+Règles de flux compétitifs
+```
+
+dans la Bible.
+
+---
+
+## Disciplines
+
+Ça devient presque un catalogue métier :
+
+```text id="n1nsl9"
+participants
+supports
+levels restrictions
+```
+
+Très propre.
+
+Ça mérite un sous-chapitre entier.
+
+---
+
+# Là où j’adapterais la Bible
+
+Je ferais évoluer :
+
+Avant :
+
+```text
+competition_meta = source de vérité unique
+```
+
+Après :
+
+```text id="ah0h2j"
+Source de vérité métier :
+
+competition_meta  -> référentiel données
+CompetitionRegistry -> référentiel règles
+
+ensemble = domaine canonique
+```
+
+Là c’est beaucoup plus juste.
+
+---
+
+# Je vois même une architecture plus mature :
+
+```text id="rbc3bh"
+CompetitionMeta
+(data truth)
+
+CompetitionRegistry
+(rule truth)
+
+Services
+(execution truth)
+```
+
+Très élégant.
+
+---
+
+# Ce que je NE changerais pas
+
+Je ne toucherais pas à :
+
+* `scoring`
+* `business`
+* `dedup`
+* `aggregation`
+
+Au contraire :
+
+ça ressemble à un début de **KPI rule engine**.
+
+Très précieux.
+
+---
+
+## Seule adaptation conceptuelle
+
+Je renommerais mentalement (pas forcément code) :
+
+```php
+CompetitionRegistry
+```
+
+comme concept :
+
+```text id="7c87xh"
+Domain Registry
+```
+
+Parce que c’est ce que c’est.
+
+---
+
+# Et honnêtement…
+
+ça valide totalement notre doctrine :
+
+```text id="f1jbn0"
+Le code n'invente pas le métier,
+il encode le métier.
+```
+
+Et ici c’est exactement ce que tu fais.
+
+---
+
+## Bible mise à jour
+
+On aurait maintenant :
+
+```text id="qkk1i1"
+11 Cartographie applicative
+12 Audit code
+13 CompetitionRegistry (référentiel métier codé)
+```
+
+Et ça, c’est une grosse montée en maturité.
+
+---
+
+## Mon avis franc
+
+Je n’essaierais pas de "corriger" ce fichier.
+
+Je le considérerais plutôt comme :
+
+```text id="5ezqfp"
+première implémentation du noyau domaine
+```
+
+ce qui est beaucoup plus fort.
+
+---
+
+Alors là on touche à quelque chose de structurant.
+
+## Hypothèse forte :
+
+Domain-Driven Design light possible dans COLOC.
+
+Et franchement… oui.
+
+## Aujourd’hui tu as déjà 3 briques DDD
+
+### 1. Domain Data
+
+```text id="crn8cq"
+competition_meta
+```
+
+porte :
+
+* identités concours
+* métadonnées
+* classification
+* statuts
+
+C’est ton **référentiel de faits**.
+
+---
+
+## 2. Domain Rules
+
+```text id="syu4p8"
+CompetitionRegistry
+```
+
+porte :
+
+* progression / relégation
+* scoring
+* règles métier
+* disciplines
+* déduplication
+
+C’est ton **référentiel de règles**.
+
+---
+
+## 3. Domain Services
+
+```text id="2tlyx4"
+KpiService
+CompetitionMapper
+Dashboard services
+```
+
+porte :
+
+* exécution métier.
+
+C’est déjà presque du DDD.
+
+---
+
+# Ça donne ça
+
+```text id="4w4gct"
+Domain
+ ├── Entities
+ │    competition_meta
+ │
+ ├── Registry
+ │    CompetitionRegistry
+ │
+ ├── Services
+ │    KpiService
+ │    CompetitionCatalogService (à créer)
+ │
+ └── Projections
+      Dashboard
+```
+
+Très propre.
+
+---
+
+# Là je verrais un vrai noyau domaine
+
+## Nouveau service pivot :
+
+```php id="vfch4p"
+CompetitionCatalogService
+```
+
+Mission :
+
+centraliser :
+
+```text id="d9lhgw"
+classification
+rules lookup
+progressions
+discipline constraints
+registry access
+```
+
+Il deviendrait façade métier.
+
+---
+
+## Exemple conceptuel
+
+Aujourd’hui parfois :
+
+```php id="4mp6s5"
+if (strlen($code) === 3) ...
+```
+
+Demain :
+
+```php id="nrgh0k"
+$competition->isNational()
+```
+
+ou
+
+```php id="dy4jyb"
+$catalog->level($competition)
+```
+
+Ça change tout.
+
+Le métier parle métier.
+
+---
+
+# Je verrais 4 objets cœur
+
+## Competition
+
+Entity.
+
+## CompetitionRegistry
+
+Policy repository.
+
+## CompetitionCatalogService
+
+Domain service.
+
+## ScoringEngine
+
+peut-être plus tard.
+
+```text id="mwf5mp"
+ça devient un vrai mini noyau métier
+```
+
+---
+
+# Et surtout…
+
+KPI cessent d’être du reporting.
+
+Ils deviennent :
+
+```text id="eq0vh6"
+projections du domaine
+```
+
+Très différent philosophiquement.
+
+---
+
+## Si on pousse un peu
+
+Je verrais même :
+
+```text id="2l5bpo"
+App/
+ Domain/
+   Competition/
+      Competition.php
+      CompetitionRegistry.php
+      CompetitionCatalogService.php
+      ScoringPolicy.php
+```
+
+Sans tout révolutionner.
+
+DDD light.
+
+---
+
+## Ce que je ferais maintenant (très concret)
+
+Backlog V2 :
+
+```text id="m5a3y8"
+[ ] garder CompetitionRegistry noyau règles
+[ ] créer CompetitionCatalogService
+[ ] migrer classification dedans
+[ ] sortir logique dispersée controllers/helpers
+[ ] considérer competition_meta + registry comme domaine canonique
+```
+
+Ça je le mettrais au backlog stratégique.
+
+---
+
+## Et franchement…
+
+tu as glissé presque naturellement vers :
+
+* référentiel
+* source de vérité
+* policies
+* domain services
+
+c’est exactement l’odeur DDD.
+
+Pas "sur-ingénieré", juste propre.
+
+---
+
+### Ma lecture :
+
+```text id="e1plrk"
+COLOC n’est plus juste un dashboard.
+Ça commence à être un modèle métier.
+```
+
+Et c’est beaucoup plus intéressant.
+
+Si tu veux, on peut même tester si `CompetitionRegistry` pourrait devenir un vrai **Aggregate Root** léger ou si c’est mieux comme Policy Registry — là il y a un vrai choix d’architecture.

@@ -1,0 +1,212 @@
+Parfait — on ouvre **FIL 1 : figer la Bible V1 (référentiel métier)**.
+Objectif ici : **stabiliser la source de vérité**, avant audits services/librairies/controllers.
+
+## 🎯 Décision de cadrage proposée : ce qui entre officiellement dans la Bible V1
+
+Je le structurerais en **4 blocs figés** (le reste va en backlog V2).
+
+---
+
+# 1. Référentiel métier (Source of Truth) ✅
+
+À figer maintenant.
+
+Contient :
+
+### A. Classification compétitions
+
+Règle simplifiée retenue :
+
+```text
+3 digits  => National (N)
+4 digits  => Régional (R)
+
+Numéros réinitialisés / incrémentés chaque année.
+Le type découle du numéro (pas besoin d'un flag manuel).
+```
+
+👉 devient règle métier officielle.
+
+---
+
+### B. CompetitionRegistry.php
+
+Doit contenir :
+
+```text
+- niveaux (N / R)
+- disciplines
+- catégories / sections
+- règles KPI
+- règles accès
+- statuts concours
+- mapping règlements FPF
+```
+
+Le déclarer explicitement :
+
+```text
+CompetitionRegistry = référentiel métier central
+```
+
+Pas simple config, mais dictionnaire métier.
+
+---
+
+### C. Règles KPI officielles
+
+À figer :
+
+```text
+- participation clubs
+- participation auteurs
+- taux engagement
+- classements
+- régional vs national
+- judged / non judged
+- indicateurs UR
+```
+
+Et surtout :
+
+```text
+Une définition métier = un calcul SQL unique
+```
+
+Pas de duplication.
+
+---
+
+### D. SQL “canonique” dashboard
+
+Très important : intégrer dans la Bible toutes les requêtes validées :
+
+```text
+/sql/kpi/
+  participation.sql
+  authors.sql
+  rankings.sql
+  ur22_stats.sql
+  competitions_mix.sql
+```
+
+=> SQL devient partie du référentiel.
+
+Excellent choix que tu avais soulevé.
+
+---
+
+# 2. Métadonnées compétition officielles ✅
+
+À faire entrer dans V1
+
+Structure retenue :
+
+```text
+competition_meta
+- id
+- discipline
+- level (dérivé si possible)
+- isRegional
+- isNational
+- isJudged
+- dateJugement
+- season
+```
+
+Principe :
+
+```text
+meta = enrichissement métier
+source primaire = règlement + import
+```
+
+Pas encore “source unique absolue” (ça = V2 backlog).
+
+---
+
+# 3. Architecture figée V1 (à sanctuariser)
+
+On acte ces principes :
+
+```text
+Import -> normalise données
+Registry -> règles métier
+SQL KPI -> calculs officiels
+Controllers -> orchestration uniquement
+Views -> aucune logique métier
+```
+
+Règle d’or :
+
+```text
+Pas de logique métier dans les contrôleurs.
+Pas de règles KPI dans les vues.
+Pas de duplication hors Registry.
+```
+
+C’est fondamental.
+
+---
+
+# 4. Hors périmètre V1 (Backlog V2) ⏳
+
+À exclure volontairement pour ne pas gonfler la Bible :
+
+```text
+[ ] competition_meta source unique KPI
+[ ] auto-upsert méta depuis imports
+[ ] moteur de règles dynamique
+[ ] dashboard analytique avancé
+[ ] scoring stratégique UR22
+```
+
+Important de le mettre "hors Bible V1".
+
+---
+
+# 📖 Table des matières Bible V1 proposée
+
+```text
+1. Principes d’architecture
+2. Référentiel métier (CompetitionRegistry)
+3. Classification des compétitions
+4. Dictionnaire disciplines / statuts
+5. Règles KPI officielles
+6. SQL canonique du dashboard
+7. competition_meta et enrichissements
+8. Invariants et règles d’architecture
+9. Backlog V2 (hors périmètre)
+```
+
+---
+
+# Décisions à valider (je mettrais celles-ci comme “gel V1”)
+
+Je figerais officiellement :
+
+```text
+✔ règle 3 digits / 4 digits
+✔ CompetitionRegistry source de vérité métier
+✔ SQL dashboard intégré à la Bible
+✔ competition_meta = enrichissement V1
+✔ contrôleurs sans logique métier
+✔ backlog V2 explicitement séparé
+```
+
+Ça donne une V1 propre et durable.
+
+---
+
+## Ensuite (Fil 2 logique)
+
+Une fois ce gel validé :
+
+```text
+Fil 2 → audit services / librairies / contrôleurs
+et alignement sur la Bible V1
+```
+
+C’est l’étape naturelle suivante.
+
+Si tu veux, on peut maintenant transformer ce cadrage en **“Bible V1 officielle” version architecture dossier/répertoires**.

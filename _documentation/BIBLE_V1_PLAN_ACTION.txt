@@ -1,0 +1,212 @@
+Oui 👍 maintenant il faut **sortir du mode exploration** et passer en plan d’action séquencé.
+Sinon on ouvre trop de chantiers.
+
+Je ferais un **roadmap par fils**, chacun autonome, sans devoir re-raconter toute l’histoire.
+
+# Plan d’action (ordre recommandé)
+
+## FIL 1 — Figer la Bible V1 (base documentaire)
+
+Objectif :
+
+```text id="6m4b8g"
+Stabiliser le référentiel avant tout refactor.
+```
+
+À faire :
+
+* figer chapitres 1–13
+* intégrer `CompetitionRegistry`
+* figer principes d’architecture
+* versionner (Bible v1.0)
+
+Livrable :
+
+```text id="vch7a7"
+docs/architecture/bible_v1.md
+```
+
+✅ Aucune refacto encore.
+
+---
+
+# FIL 2 — Audit code vs Bible
+
+Objectif :
+
+```text id="0hd7zd"
+Comparer l’existant au modèle.
+```
+
+Passer fichier par fichier :
+
+```text id="8jlwmf"
+CompetitionMapper
+DashboardController
+KpiService
+imports
+views critiques
+```
+
+Sortie :
+
+```text id="qcw1nn"
+aligné
+à déplacer
+dette technique
+```
+
+Livrable :
+
+* matrice d’audit
+
+Pas de code lourd encore.
+
+---
+
+# FIL 3 — Noyau domaine minimal
+
+Objectif :
+
+```text id="h2e2m0"
+Créer le noyau domaine sans casser l’existant.
+```
+
+Introduire :
+
+```text id="lt9mry"
+CompetitionCatalogService
+```
+
+Centraliser :
+
+* classification
+* accès registry
+* règles métier dispersées
+
+Premier vrai refactor.
+
+---
+
+# FIL 4 — Centralisation logique métier
+
+Migrer progressivement :
+
+```text id="h6skp1"
+controllers -> services
+helpers -> domaine
+vues -> présentation pure
+```
+
+Objectif :
+
+```text id="g5hz4x"
+Une règle = un endroit.
+```
+
+---
+
+# FIL 5 — SQL Canonique / repositories
+
+Nettoyer :
+
+```text id="fdug4t"
+catalogue requêtes
+repositories disciplinés
+traçabilité KPI
+```
+
+Stabilisation data layer.
+
+---
+
+# FIL 6 — Backlog V2 (plus tard)
+
+Seulement après :
+
+```text id="hs3f8y"
+Scoring engine
+Domain objects
+DDD light plus poussé
+automation meta
+```
+
+Pas avant.
+
+---
+
+# Ordre recommandé
+
+```text id="mqas7t"
+1 Bible
+2 Audit
+3 Noyau domaine
+4 Refactor métier
+5 SQL layer
+6 V2 stratégique
+```
+
+Cet ordre est important.
+
+---
+
+# Règle importante
+
+Un fil = une seule action.
+
+Format de démarrage de chaque nouveau fil :
+
+```text id="jstzwi"
+FIL X
+Objectif :
+Contexte minimal :
+Livrable attendu :
+```
+
+Exemple :
+
+```text id="mb90ce"
+FIL 2
+Audit CompetitionMapper contre Bible V1
+Objectif :
+identifier logique métier à sortir
+```
+
+Et c’est tout. Pas besoin de répéter toute l’histoire.
+
+---
+
+## Backlog visuel
+
+```text id="n2sxzt"
+[ ] Fil 1 Figer Bible
+[ ] Fil 2 Audit code
+[ ] Fil 3 CompetitionCatalogService
+[ ] Fil 4 Refactor métier
+[ ] Fil 5 SQL canonique
+[ ] Fil 6 Architecture V2
+```
+
+---
+
+## Mon conseil franc
+
+👉 On ne touche pas à l’architecture V2 maintenant.
+
+On ferme d’abord :
+
+* Bible
+* audit
+* noyau domaine
+
+C’est le vrai socle.
+
+---
+
+Si j’étais toi, j’ouvrirais tout de suite le prochain fil avec simplement :
+
+```text id="8wqmw7"
+FIL 1 — figer Bible V1 et décider ce qui entre officiellement dans le référentiel.
+```
+
+Parfait point de départ.

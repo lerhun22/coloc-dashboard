@@ -1,0 +1,295 @@
+## Audit FIL 2 — CompetitionMapper
+
+Là on touche effectivement au cœur métier.
+
+Et honnêtement : **c’est le premier composant où je mettrais une alerte architecture sérieuse** (pas dramatique, mais structurante).
+
+## Verdict court
+
+```text id="6m0z7x"
+Bon mapper de transition
+mais pas une source de vérité
+et commence à faire trop de choses
+```
+
+---
+
+# 1. Ce n’est plus seulement un Mapper
+
+Un mapper devrait faire :
+
+```text id="eb17c5"
+entrée brute -> structure normalisée
+```
+
+Or ici il fait :
+
+* parsing métier
+* classification FPF
+* labels UI
+* statut temporel
+* classes CSS (présentation)
+
+Ça fait **4 couches mélangées**.
+
+---
+
+# 2. Mélange métier + présentation ❌
+
+Ici :
+
+```php id="5j0cn2"
+typeClass()
+```
+
+ça n’a rien à faire dans un mapper métier.
+
+CSS :
+
+```text id="2z3dsv"
+view concern
+```
+
+À sortir.
+
+Pareil :
+
+```php id="h62h5r"
+label()
+reference()
+```
+
+ce sont des view presenters.
+
+Pas du mapping métier.
+
+Je séparerais :
+
+```text id="0z32sf"
+CompetitionMapper        (métier)
+CompetitionPresenter     (UI)
+```
+
+très nette frontière.
+
+---
+
+# 3. Parsing par nom = fragile ⚠️
+
+Le gros sujet :
+
+```php id="zh7fhu"
+str_contains(...)
+```
+
+sur libellés.
+
+Ça marche…
+jusqu’au changement règlement.
+
+C’est exactement ce qu’on voulait éviter avec la Bible.
+
+Exemple :
+
+```php id="bfrvkh"
+"NATIONAL2"
+"NATIONAL 2"
+```
+
+déjà deux variantes gérées.
+
+ça sent le référentiel implicite.
+
+Cette logique devrait probablement migrer vers :
+
+```text id="6cpqbm"
+CompetitionRegistry
+```
+
+pas rester codée en dur ici.
+
+---
+
+# 4. Classification = devrait venir du référentiel
+
+Cette partie :
+
+* niveau
+* support
+* catégorie
+
+c’est presque du dictionnaire métier.
+
+Donc plus proche de :
+
+```text id="hphm8p"
+Registry rules
+```
+
+que d’un helper.
+
+Très important.
+
+Je soupçonne qu’on veut à terme :
+
+```text id="4qjkcr"
+CompetitionMapper
+lit le Registry
+ne porte plus les règles
+```
+
+et ça change tout.
+
+---
+
+# 5. statut() mélange encore une autre responsabilité
+
+Ici :
+
+```php id="n0ozng"
+NON IMPORTÉE
+À VENIR
+JUGÉE
+```
+
+c’est de la logique d’état métier / workflow.
+
+Encore autre couche.
+
+Ce n’est ni mapping ni UI pur.
+
+Probablement :
+
+```text id="nhzdrm"
+CompetitionStatusService
+```
+
+ou règle registry.
+
+---
+
+# 6. Le vrai risque caché
+
+Si demain règles FPF changent :
+
+* N1/N2
+* classification id 3 digits /4 digits (ton modèle simplifié)
+* catégories
+
+il faudra corriger :
+
+* mapper
+* SQL
+* views
+* helpers
+
+=> dérive multi-source.
+
+C’est exactement ce qu’on essaie de tuer.
+
+---
+
+# 7. Ce que je garderais
+
+Très bonne intuition structurelle :
+
+```text id="dcrbvx"
+niveau()
+support()
+categorie()
+```
+
+le découpage est bon.
+
+Je garderais ces concepts —
+mais déplacés.
+
+---
+
+## Architecture cible que je vois émerger
+
+```text id="kt1eb6"
+CompetitionRegistry
+ ├─ niveau rules
+ ├─ support rules
+ ├─ categories
+ └─ status rules
+
+CompetitionMapper
+ └─ normalisation via Registry
+
+CompetitionPresenter
+ ├─ label
+ ├─ reference
+ └─ css classes
+```
+
+Là c’est propre.
+
+---
+
+# 8. Audit score
+
+| Sujet             | Etat         |
+| ----------------- | ------------ |
+| Structure         | ✅ bonne base |
+| Responsabilités   | ❌ mélangées  |
+| Source de vérité  | ⚠️ fragile   |
+| Dette future      | élevée       |
+| Refactor priorité | haute        |
+
+---
+
+## Je classerais :
+
+```text id="cfg8rr"
+Refactor structurant prioritaire
+```
+
+plus prioritaire que CompetitionService, clairement.
+
+---
+
+## Backlog que j’inscrirais
+
+```text id="5eu9i0"
+[ ] Sortir typeClass vers presenter/view
+[ ] Sortir label/reference vers presenter
+[ ] Migrer règles niveau/support/catégorie vers Registry
+[ ] Décider si statut relève du Registry ou d’un StatusService
+[ ] Réduire Mapper à normalisation pure
+```
+
+---
+
+## Et surtout…
+
+Ton intuition récente :
+
+```text id="h8d10m"
+3 digits = N
+4 digits = R
+numérotation annuelle
+```
+
+si cette règle tient,
+elle peut remplacer énormément de parsing textuel ici.
+
+Et là on simplifie brutalement.
+
+Je dirais même :
+ça peut rendre 50% de ce mapper obsolète.
+
+---
+
+## Verdict franc
+
+```text id="62e1m2"
+Premier vrai composant à remettre au centre du référentiel.
+```
+
+Très bon audit à faire maintenant.
+
+---
+
+Si tu veux, je serais curieux d’auditer maintenant **CompetitionRegistry** face à ce mapper — c’est probablement là qu’on voit si l’architecture converge ou se chevauche.

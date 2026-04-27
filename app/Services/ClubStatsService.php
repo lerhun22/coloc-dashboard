@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+helper('competition');
+
 class ClubStatsService
 {
     public function compute(array $rows): array
@@ -13,14 +15,26 @@ class ClubStatsService
 
             /*
             =====================================================
-            🔥 FILTRE UR22 (participant OU EAN)
+            🔥 FILTRE UR (participant OU EAN)
             =====================================================
             */
-            $isUR22 =
-                ($r['participant_ur'] ?? null) == 22
-                || (!empty($r['ean']) && substr($r['ean'], 0, 2) == '22');
 
-            if (!$isUR22) continue;
+            $urPrefix = currentURPrefix();
+
+            $isUR =
+                ($r['participant_ur'] ?? null) == currentUR()
+                || (
+                    !empty($r['ean'])
+                    && substr(
+                        $r['ean'],
+                        0,
+                        2
+                    ) == $urPrefix
+                );
+
+            if (!$isUR) continue;
+
+
 
             /*
             =====================================================
@@ -132,10 +146,10 @@ class ClubStatsService
 
         /*
         =====================================================
-        🟧 REGIONAL UR22
+        🟧 REGIONAL UR
         =====================================================
         */
-        if (trim((string)$urs_id) == '22') {
+        if ((int)$urs_id === currentUR()) {
 
             if (str_contains($n, 'papier')) return 'r';
             if (str_contains($n, 'image projete')) return 'r'; // 🔥 robuste

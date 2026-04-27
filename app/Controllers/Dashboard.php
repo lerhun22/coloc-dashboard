@@ -71,11 +71,18 @@ class Dashboard extends BaseController
 
         /*
     ============================================================
-    🧠 DASHBOARD UR22
+    🧠 DASHBOARD UR
     ============================================================
     */
         $dashboardService = new \App\Services\DashboardURService();
-        $dashboard = $dashboardService->build($rows, 22);
+        helper('competition');
+
+        $dashboardService = new DashboardURService();
+
+        $dashboard = $dashboardService->build(
+            $rows,
+            currentUR()
+        );
 
         /*
     ============================================================
