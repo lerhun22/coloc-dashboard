@@ -227,7 +227,6 @@ class ImportFromCopain extends BaseController
                 'activeMode' => 'regional' // 🔥 important
             ],
             'urs' => $urs,
-            'competition_states' => $sessionStates
         ]);
 
         /*
@@ -235,6 +234,12 @@ class ImportFromCopain extends BaseController
     VIEW
     ============================================================
     */
+
+        $this->seedCompetitionBootstrap(
+            $competitions,
+            $rcompetitions
+        );
+
 
         return view('import/copain', [
             'email'         => $email,
@@ -556,5 +561,493 @@ class ImportFromCopain extends BaseController
         return $this->response->setJSON(
             $wf->getState()
         );
+    }
+
+    /**
+     * -------------------------------------------------------------
+     * Bootstrap analytique depuis Copain
+     * Seed :
+     * - competition_meta
+     * - competitions_enriched
+     * - competition_metrics
+     * -------------------------------------------------------------
+     */
+    /**
+     * -------------------------------------------------------------
+     * Bootstrap analytique depuis Copain
+     * Seed :
+     * - competition_meta
+     * - competitions_enriched
+     * - competition_metrics
+     * -------------------------------------------------------------
+     */
+    private function seedCompetitionBootstrap(
+        array $competitions,
+        array $rcompetitions
+    ): void {
+        $db = \Config\Database::connect();
+
+        /*
+    =========================================================
+    TEST REBUILD
+    (commenter ensuite)
+    =========================================================
+    */
+        $db->table('competition_metrics')->truncate();
+        $db->table('competitions_enriched')->truncate();
+        $db->table('competition_meta')->truncate();
+
+
+        $all = array_merge(
+            $competitions,
+            $rcompetitions
+        );
+
+        foreach ($all as $c) {
+
+            /*
+        =========================================================
+        Defensive extraction
+        =========================================================
+        */
+
+            $id = $c['id'] ?? null;
+
+            if (!$id) {
+                continue;
+            }
+
+            $label = mb_strtoupper(
+                trim($c['nom'] ?? '')
+            );
+
+            $urId   = $c['urs_id'] ?? null;
+            $saison = $c['saison'] ?? date('Y');
+
+
+            /*
+        =========================================================
+        LEVEL
+        =========================================================
+        */
+
+            if ($urId !== null) {
+
+                $level = 'REGIONAL';
+            } elseif (
+                str_contains($label, 'NATIONAL 1')
+            ) {
+                $level = 'N1';
+            } elseif (
+                str_contains($label, 'NATIONAL 2')
+                || str_contains($label, 'NATIONAL2')
+            ) {
+                $level = 'N2';
+            } elseif (
+                str_contains($label, 'FRANCE')
+            ) {
+                $level = 'CDF';
+            } else {
+
+                /*
+            Open Fed / challenges / galeries / GP auteurs
+            */
+                $level = 'DIRECT';
+            }
+
+
+
+            /*
+        =========================================================
+        DISCIPLINE
+        =========================================================
+        */
+
+            $discipline = 'AUTEUR'; // fallback safe (plus UNKNOWN)
+
+            if (
+                str_contains($label, 'MONO')
+                || str_contains($label, 'NB')
+                || str_contains($label, 'NOIR ET BLANC')
+            ) {
+                $discipline = 'MONOCHROME';
+            } elseif (
+                str_contains($label, 'COULEUR')
+            ) {
+                $discipline = 'COULEUR';
+            } elseif (
+                str_contains($label, 'NATURE')
+                || str_contains($label, 'ANIMALIER')
+                || str_contains($label, 'INSECTES')
+            ) {
+                $discipline = 'NATURE';
+            } elseif (
+                str_contains($label, 'QUADRI')
+            ) {
+                $discipline = 'QUADRIMAGE';
+            } elseif (
+                str_contains($label, 'AUDIO')
+                || str_contains($label, 'DIAPORAMA')
+                || str_contains($label, 'SONORIS')
+            ) {
+                $discipline = 'AUDIOVISUEL';
+            } elseif (
+                str_contains($label, 'REPORTAGE')
+            ) {
+                $discipline = 'AUTEUR';
+            } elseif (
+                str_contains($label, 'AUTEUR')
+                || str_contains($label, 'CHALLENGE')
+                || str_contains($label, 'DEFI')
+                || str_contains($label, 'OPEN FED')
+                || str_contains($label, 'GALERIE')
+                || str_contains($label, 'JEUNESSE')
+                || str_contains($label, 'CRÉATIVITÉ')
+            ) {
+                $discipline = 'AUTEUR';
+            }
+
+
+
+            /*
+        =========================================================
+        SUPPORT
+        =========================================================
+        */
+
+            $support = 'IP'; // fallback safe
+
+            if (
+                str_contains($label, 'PAPIER')
+            ) {
+                $support = 'PAPIER';
+            } elseif (
+                str_contains($label, 'IMAGE PROJET')
+                || str_contains($label, 'IP')
+            ) {
+                $support = 'IP';
+            }
+
+
+
+            /*
+        =========================================================
+        PARTICIPANTS TYPE
+        =========================================================
+        */
+
+            $participantsType = 'club';
+
+            if (
+                $discipline === 'AUTEUR'
+                || str_contains($label, 'AUTEUR')
+            ) {
+                $participantsType = 'author';
+            }
+
+
+
+            /*
+        =========================================================
+        progression model
+        =========================================================
+        */
+
+            $hasProgression = in_array(
+                $level,
+                ['REGIONAL', 'N2', 'N1']
+            ) ? 1 : 0;
+
+
+
+            /*
+        =========================================================
+        competition_meta
+        =========================================================
+        */
+
+            $db->table('competition_meta')->insert([
+
+                'competition_id'     => $id,
+                'saison'             => $saison,
+                'level'              => $level,
+                'discipline'         => $discipline,
+                'support'            => $support,
+                'participants_type'  => $participantsType,
+                'is_official'        => 1,
+                'source_label'       => $label,
+                'normalized_at'      => date('Y-m-d H:i:s')
+
+            ]);
+
+
+
+            /*
+        =========================================================
+        competitions_enriched
+        =========================================================
+        */
+
+            $db->table('competitions_enriched')->insert([
+
+                'competition_id' => $id,
+                'saison'         => $saison,
+
+                'level'          => $level,
+                'discipline'     => $discipline,
+                'support'        => $support,
+
+                'access_type' =>
+                $level === 'REGIONAL'
+                    ? 'qualification'
+                    : 'direct',
+
+                'participants_type' => $participantsType,
+
+                'has_progression' => $hasProgression,
+
+                'photos_retained'  => null,
+                'photos_max'       => null,
+                'promotion_limit'  => null,
+                'relegation_limit' => null,
+
+                'source_label' => $label
+            ]);
+
+
+
+            /*
+        =========================================================
+        competition_metrics
+        =========================================================
+        */
+
+            $sql = "
+            SELECT
+                COUNT(*) nb_photos,
+                COUNT(DISTINCT p.clubs_id) nb_clubs,
+                AVG(ph.note_totale) avg_score
+            FROM photos ph
+            LEFT JOIN participants p
+                ON p.id=ph.participants_id
+            WHERE ph.competitions_id=?
+        ";
+
+            $m = $db
+                ->query($sql, [$id])
+                ->getRowArray();
+
+
+            $db->table('competition_metrics')->insert([
+
+                'competition_id' => $id,
+                'saison' => $saison,
+
+                'nb_clubs' => $m['nb_clubs'] ?? 0,
+                'nb_photos' => $m['nb_photos'] ?? 0,
+                'avg_score' => $m['avg_score'] ?? null,
+
+                'std_deviation' => null,
+                'avg_score_per_judge' => null,
+                'jury_variance' => null
+
+            ]);
+        }
+
+        log_message(
+            'debug',
+            '[Competition bootstrap seeded] ' . count($all)
+        );
+    }
+
+    /**
+     * --------------------------------------------------
+     * TEST
+     * Seed competition_meta depuis flux Copain
+     * --------------------------------------------------
+     */
+    public function initCompetitionMetaFromCopain()
+    {
+        $config = config('Copain');
+
+        $email    = $config->email;
+        $password = $config->password;
+
+        $cookie = WRITEPATH . 'copain_cookie.txt';
+        if (file_exists($cookie)) {
+            unlink($cookie);
+        }
+
+        $reader = new \App\Libraries\CopainLegacyReader();
+
+        $data = $reader->getCompetitions($email, $password) ?? [
+            'competitions' => [],
+            'rcompetitions' => []
+        ];
+
+        /*
+    ---------------------------------
+    Fusion N + R
+    ---------------------------------
+    */
+
+        $all = array_merge(
+            $data['competitions'] ?? [],
+            $data['rcompetitions'] ?? []
+        );
+
+        if (!$all) {
+            return $this->response->setJSON([
+                'status' => 'empty'
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+
+        // mode rebuild
+        $db->table('competition_meta')->truncate();
+
+        $inserted = 0;
+
+        foreach ($all as $c) {
+
+            $id = $c['id'] ?? null;
+            if (!$id) {
+                continue;
+            }
+
+            $label = mb_strtoupper(
+                trim($c['nom'] ?? '')
+            );
+
+            /*
+        =========================
+        LEVEL
+        =========================
+        */
+
+            if (($c['urs_id'] ?? null) !== null) {
+                $level = 'REGIONAL';
+            } else {
+
+                $numero = (string)($c['numero'] ?? '');
+
+                if (str_contains($label, 'FRANCE')) {
+                    $level = 'CDF';
+                } elseif (str_starts_with($numero, '1')) {
+                    $level = 'N1';
+                } elseif (str_starts_with($numero, '2')) {
+                    $level = 'N2';
+                } else {
+                    $level = 'DIRECT';
+                }
+            }
+
+
+            /*
+        =========================
+        DISCIPLINE
+        =========================
+        */
+
+            $discipline = 'UNKNOWN';
+
+            if (str_contains($label, 'MONO')) {
+                $discipline = 'MONOCHROME';
+            } elseif (str_contains($label, 'COULEUR')) {
+                $discipline = 'COULEUR';
+            } elseif (str_contains($label, 'NATURE')) {
+                $discipline = 'NATURE';
+            } elseif (str_contains($label, 'AUTEUR')) {
+                $discipline = 'AUTEUR';
+            } elseif (str_contains($label, 'QUADRI')) {
+                $discipline = 'QUADRIMAGE';
+            } elseif (
+                str_contains($label, 'AUDIO')
+                || str_contains($label, 'DIAPORAMA')
+            ) {
+                $discipline = 'AUDIOVISUEL';
+            }
+
+
+            /*
+        =========================
+        SUPPORT
+        =========================
+        */
+
+            $support = 'UNKNOWN';
+
+            if (
+                str_contains($label, 'IMAGE PROJETEE')
+                || str_contains($label, 'IP')
+            ) {
+                $support = 'IP';
+            }
+
+            if (
+                str_contains($label, 'PAPIER')
+            ) {
+                $support = 'PAPIER';
+            }
+
+
+            /*
+        =========================
+        PARTICIPANTS TYPE
+        =========================
+        */
+
+            $participantsType = 'club';
+
+            if (
+                str_contains($label, 'AUTEUR')
+            ) {
+                $participantsType = 'author';
+            }
+
+
+            /*
+        =========================
+        INSERT
+        =========================
+        */
+
+            $db->table('competition_meta')
+                ->insert([
+                    'competition_id'     => $id,
+                    'saison'             => $c['saison'],
+                    'level'              => $level,
+                    'discipline'         => $discipline,
+                    'support'            => $support,
+                    'participants_type'  => $participantsType,
+                    'is_official'        => 1,
+                    'source_label'       => $c['nom'],
+                    'normalized_at'      => date('Y-m-d H:i:s')
+                ]);
+
+            $inserted++;
+        }
+
+
+        /*
+    ---------------------------------
+    Audit retour
+    ---------------------------------
+    */
+
+        $unknown = $db->query("
+        SELECT count(*) n
+        FROM competition_meta
+        WHERE discipline='UNKNOWN'
+           OR support='UNKNOWN'
+    ")->getRow()->n;
+
+
+        return $this->response->setJSON([
+            'status' => 'ok',
+            'inserted' => $inserted,
+            'unknown_to_review' => $unknown
+        ]);
     }
 }

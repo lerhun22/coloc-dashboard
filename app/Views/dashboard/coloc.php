@@ -24,6 +24,10 @@ $globalFPF =
 $comparison =
     $dashboard['comparison'];
 
+$laureates =
+    $dashboard['dashboardLaureates'];
+
+
 /*
 ------------------------------------------------
 Club labels
@@ -1012,6 +1016,90 @@ line-height:1.8;
 
         <?php endif; ?>
 
+        <?= count($laureates) ?>
+        <?php if (!empty($laureates)): ?>
+
+            <div class="section">
+
+                <h2>🏅 Capital d’excellence — auteurs lauréats</h2>
+
+                <p style="color:#667085;margin-bottom:18px;">
+                    Podiums auteurs contextualisés par densité compétitive.
+                </p>
+
+                <table class="ranking">
+
+                    <tr>
+                        <th>Compétition</th>
+                        <th>Densité</th>
+                        <th>🥇</th>
+                        <th>🥈</th>
+                        <th>🥉</th>
+                    </tr>
+
+                    <?php foreach ($laureates as $row): ?>
+
+                        <tr>
+
+                            <td class="club-col">
+                                <?= esc($row['competition']) ?>
+                            </td>
+
+                            <td class="num-col">
+                                <span class="obs-pill <?= $row['density_class'] ?>">
+                                    <?= $row['density_label'] ?>
+                                </span>
+
+                                <div style="margin-top:6px;font-size:12px;color:#666;">
+                                    <?= $row['field_size'] ?> images
+                                </div>
+                            </td>
+
+
+                            <?php foreach (['gold', 'silver', 'bronze'] as $medal): ?>
+
+                                <td>
+
+                                    <?php if (!empty($row[$medal])): ?>
+
+                                        <strong>
+                                            <?= esc($row[$medal]['author']) ?>
+                                        </strong>
+
+                                        <div style="font-size:13px;color:#666;margin-top:6px;">
+                                            <?= $row[$medal]['total'] ?>
+                                            pts ·
+                                            <?= $row[$medal]['nb_photos'] ?>
+                                            img
+                                        </div>
+
+                                        <div style="margin-top:6px;">
+                                            <span class="club-chip club-<?= $row[$medal]['club'] ?>">
+                                                <?= $row[$medal]['club'] ?>
+                                            </span>
+                                        </div>
+
+                                    <?php else: ?>
+
+                                        —
+
+                                    <?php endif; ?>
+
+                                </td>
+
+                            <?php endforeach; ?>
+
+                        </tr>
+
+                    <?php endforeach; ?>
+
+                </table>
+
+            </div>
+
+        <?php endif; ?>
+
+
         <?php
         function renderMatrix(
             $title,
@@ -1220,7 +1308,6 @@ line-height:1.8;
             </div>
 
         <?php } ?>
-
 
         <?php
         renderMatrix(

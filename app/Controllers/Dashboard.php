@@ -9,7 +9,7 @@ use App\Services\JugementService;
 use App\Services\DataPipelineService;
 use App\Services\DashboardURService;
 use App\Services\SeasonService;
-use App\Services\CompetitionStatsService;
+use App\Services\CompetitionLaureatesService;
 use App\Services\DataProviderClubs;
 
 class Dashboard extends BaseController
@@ -121,6 +121,7 @@ class Dashboard extends BaseController
             0,
             60
         );
+
 
         /*
     ============================================================

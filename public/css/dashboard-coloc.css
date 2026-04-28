@@ -1,0 +1,552 @@
+/* ==========================================================
+COLOC DASHBOARD CSS
+V1 Structured Monolith
+========================================================== */
+
+
+/* ==========================================================
+01 TOKENS
+========================================================== */
+
+:root{
+--brand:#243447;
+
+--panel:#ffffff;
+--soft:#f7f9fc;
+--hover:#eef6ff;
+
+--success:#1e7d32;
+--warning:#9a6b00;
+--danger:#b42318;
+
+--border:#e8edf3;
+--text:#1f2937;
+--muted:#667085;
+}
+
+
+
+/* ==========================================================
+02 LAYOUT
+========================================================== */
+
+.main-content{
+max-width:1550px;
+margin:auto;
+padding:30px;
+}
+
+.section{
+background:var(--panel);
+padding:34px 38px;
+border-radius:18px;
+margin-bottom:45px;
+box-shadow:0 3px 12px rgba(0,0,0,.08);
+}
+
+.export-btn{
+float:right;
+background:#27ae60;
+color:#fff;
+padding:11px 18px;
+border-radius:8px;
+text-decoration:none;
+font-weight:700;
+}
+
+
+
+/* ==========================================================
+03 KPI CARDS
+========================================================== */
+
+.grid-3{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:24px;
+margin:30px 0;
+}
+
+.card{
+background:var(--soft);
+padding:28px;
+border-radius:14px;
+}
+
+.card b{
+display:block;
+font-size:32px;
+margin-top:8px;
+}
+
+.highlight{
+background:#fff6e6;
+}
+
+
+
+/* ==========================================================
+04 BASE TABLES
+========================================================== */
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:20px;
+}
+
+th{
+background:var(--brand);
+color:#fff;
+padding:15px 18px;
+}
+
+td{
+padding:14px 18px;
+border-bottom:1px solid var(--border);
+color:var(--text);
+background:#fff;
+}
+
+
+
+/* ==========================================================
+05 RANKINGS
+========================================================== */
+
+.ranking{
+width:100%;
+font-size:18px;
+}
+
+.ranking tbody tr,
+.ranking tbody td{
+background:#fff !important;
+}
+
+.ranking tbody tr:hover td{
+background:var(--hover) !important;
+transition:.15s;
+}
+
+.ranking td{
+box-shadow:none !important;
+}
+
+.rank-col{
+width:75px;
+text-align:center;
+}
+
+.rank-badge{
+display:inline-block;
+min-width:38px;
+padding:7px 11px;
+border-radius:20px;
+background:var(--brand);
+color:#fff;
+font-weight:700;
+font-size:15px;
+}
+
+.club-col{
+width:42%;
+text-align:left;
+font-weight:600;
+color:#172033;
+}
+
+.ur-col{
+width:90px;
+text-align:center;
+}
+
+.num-col{
+width:120px;
+text-align:right;
+font-variant-numeric:tabular-nums;
+}
+
+.total-col{
+font-weight:700;
+font-size:20px;
+}
+
+
+
+/* ==========================================================
+06 CLUB BADGES
+========================================================== */
+
+.club-chip{
+display:inline-block;
+padding:8px 14px;
+border-radius:18px;
+font-size:13px;
+font-weight:700;
+color:#fff;
+line-height:1;
+}
+
+[class^="club-"]{
+background:#7f8c8d;
+}
+
+/* Core clubs */
+
+.club-58{
+background:#9b59b6;
+}
+
+.club-603{
+background:#8e44ad;
+}
+
+.club-1677{
+background:#16a085;
+}
+
+.club-1771{
+background:#d35400;
+}
+
+.club-1829{
+background:#2ecc71;
+}
+
+.club-2159{
+background:#34495e;
+}
+
+.club-2268{
+background:#f39c12;
+}
+
+.club-2274{
+background:#c0392b;
+}
+
+/* legacy / optional */
+
+.club-131{
+background:#16a085;
+}
+
+.club-747{
+background:#2980b9;
+}
+
+
+
+/* ==========================================================
+07 MATRICES
+========================================================== */
+
+.matrix-wrap{
+overflow-x:auto;
+padding-bottom:10px;
+}
+
+.matrix{
+min-width:1500px;
+}
+
+.matrix th,
+.matrix td{
+white-space:nowrap;
+text-align:center;
+}
+
+.matrix td:first-child{
+text-align:left;
+min-width:360px;
+font-weight:600;
+}
+
+.matrix td:nth-child(2){
+min-width:260px;
+background:#fff;
+}
+
+.matrix td.active{
+background:var(--hover);
+font-weight:700;
+}
+
+.winner-club{
+margin-top:6px;
+}
+
+.winner-points{
+margin-top:6px;
+font-size:14px;
+color:#666;
+}
+
+
+
+/* ==========================================================
+08 LEGENDS
+========================================================== */
+
+.legend{
+margin-top:30px;
+}
+
+.legend-grid{
+display:grid;
+grid-template-columns:
+repeat(auto-fit,minmax(420px,1fr));
+gap:20px 40px;
+margin-top:20px;
+}
+
+.legend-item{
+display:flex;
+align-items:center;
+gap:14px;
+white-space:nowrap;
+}
+
+.legend-box{
+margin-top:30px;
+padding:24px 28px;
+background:var(--soft);
+border-radius:14px;
+line-height:1.7;
+}
+
+.legend-box h3{
+margin-top:0;
+margin-bottom:14px;
+}
+
+.legend-box ul{
+margin:0;
+padding-left:18px;
+}
+
+.legend-box li{
+margin-bottom:10px;
+}
+
+
+
+/* ==========================================================
+09 OBSERVATORY
+========================================================== */
+
+.conv-pill,
+.obs-pill{
+display:inline-block;
+padding:8px 12px;
+border-radius:18px;
+font-weight:700;
+min-width:76px;
+text-align:center;
+}
+
+.perf-good{
+background:#eaf8ef;
+color:var(--success);
+}
+
+.perf-mid{
+background:#fff8e5;
+color:var(--warning);
+}
+
+.perf-low{
+background:#fdecec;
+color:var(--danger);
+}
+
+.profile-chip{
+display:inline-block;
+padding:7px 12px;
+border-radius:16px;
+font-size:12px;
+font-weight:700;
+background:#eef3fb;
+color:var(--brand);
+}
+
+.obs-bonus{
+font-weight:700;
+color:var(--brand);
+}
+
+
+
+/* ==========================================================
+10 LAUREATES
+========================================================== */
+
+.section-intro{
+color:var(--muted);
+margin-bottom:18px;
+}
+
+.density-meta{
+margin-top:6px;
+font-size:12px;
+color:#666;
+}
+
+.laureate-meta{
+margin-top:6px;
+font-size:13px;
+color:#666;
+}
+
+.laureate-club{
+margin-top:6px;
+}
+
+
+
+/* ==========================================================
+11 JUDGEMENT GALLERY
+========================================================== */
+
+.jugement-grid{
+display:grid;
+grid-template-columns:
+repeat(auto-fill,minmax(220px,1fr));
+gap:15px;
+}
+
+.jugement-card{
+background:#fff;
+border-radius:10px;
+overflow:hidden;
+box-shadow:0 2px 6px rgba(0,0,0,.1);
+transition:.2s;
+}
+
+.jugement-card:hover{
+transform:translateY(-4px);
+}
+
+.jugement-img{
+width:100%;
+height:160px;
+object-fit:cover;
+cursor:pointer;
+}
+
+.jugement-content{
+padding:10px;
+text-align:left;
+}
+
+.jugement-title{
+font-weight:bold;
+font-size:14px;
+margin-bottom:5px;
+}
+
+.jugement-meta{
+font-size:12px;
+color:#666;
+margin-bottom:5px;
+}
+
+.badge-notes span{
+display:inline-block;
+padding:4px 6px;
+margin:2px;
+border-radius:4px;
+font-size:11px;
+color:#fff;
+}
+
+
+
+/* ==========================================================
+12 WOW GALLERY
+========================================================== */
+
+.wow-grid{
+display:grid;
+grid-template-columns:
+repeat(auto-fill,minmax(160px,1fr));
+gap:10px;
+}
+
+.wow-grid img{
+width:100%;
+height:160px;
+object-fit:cover;
+border-radius:8px;
+cursor:pointer;
+}
+
+
+
+/* ==========================================================
+13 LIGHTBOX
+========================================================== */
+
+.lightbox{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,.95);
+display:none;
+align-items:center;
+justify-content:center;
+z-index:9999;
+}
+
+.lightbox img{
+max-width:90%;
+max-height:90%;
+}
+
+.lightbox-close{
+position:absolute;
+top:20px;
+right:30px;
+color:#fff;
+font-size:30px;
+cursor:pointer;
+}
+
+.lightbox-nav{
+position:absolute;
+top:50%;
+transform:translateY(-50%);
+font-size:60px;
+color:#fff;
+cursor:pointer;
+}
+
+.lightbox-nav.left{
+left:20px;
+}
+
+.lightbox-nav.right{
+right:20px;
+}
+
+
+
+/* ==========================================================
+14 UTILITIES
+========================================================== */
+
+.small{
+font-size:14px;
+color:var(--muted);
+}
+
+.mt-6{
+margin-top:6px;
+}
+
+.mt-40{
+margin-top:40px;
+}

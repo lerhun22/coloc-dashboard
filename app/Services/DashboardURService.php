@@ -5,7 +5,9 @@ namespace App\Services;
 class DashboardURService
 {
     public function build(array $rows, ?int $ur = null): array
+
     {
+
         $ur ??= currentUR();
         /*
         ============================================================
@@ -236,6 +238,13 @@ compléter depuis matrices
             $this->buildObservatorySummary(
                 $clubObservatory
             );
+        /*
+============================================================
+10. Capital d'excellence (FIL2B)
+============================================================
+*/
+        $laureatePodiums =
+            $this->buildLaureatePodiums();
 
         return [
 
@@ -276,6 +285,7 @@ compléter depuis matrices
 
             'clubObservatory' => $clubObservatory,
             'obsSummary'      => $obsSummary,
+            'dashboardLaureates' => $laureatePodiums,
         ];
     }
 
@@ -926,5 +936,115 @@ Typologie finale V1 (stable)
                 10
             )
         ];
+    }
+
+    /*
+============================================================
+FIL2B — Auteurs lauréats contextualisés
+============================================================
+*/
+    private function buildLaureatePodiums(): array
+    {
+        $db = \Config\Database::connect();
+
+        $rows = $db->query("
+        SELECT
+            c.nom competition,
+            ca.place,
+            pa.nom,
+            pa.prenom,
+            cl.numero club,
+            ca.total,
+            ca.nb_photos,
+            x.field_size
+
+        FROM classementauteurs ca
+
+        JOIN competitions c
+            ON c.id = ca.competitions_id
+
+        JOIN participants pa
+            ON pa.id = ca.participants_id
+
+        JOIN clubs cl
+            ON cl.id = pa.clubs_id
+
+        JOIN (
+            SELECT
+                competitions_id,
+                COUNT(*) field_size
+            FROM photos
+            GROUP BY competitions_id
+        ) x
+            ON x.competitions_id = ca.competitions_id
+
+        WHERE ca.place IN (1,2,3)
+          AND ca.total > 0
+
+        ORDER BY c.nom, ca.place
+    ")->getResultArray();
+
+        $out = [];
+
+        foreach ($rows as $r) {
+
+            $comp = $r['competition'];
+
+            if (!isset($out[$comp])) {
+
+                $field = (int)$r['field_size'];
+
+                if ($field >= 900) {
+                    $label = '🔥 Elite';
+                    $class = 'perf-good';
+                } elseif ($field >= 700) {
+                    $label = '▲ Haute';
+                    $class = 'perf-good';
+                } elseif ($field >= 300) {
+                    $label = '● Dense';
+                    $class = 'perf-mid';
+                } else {
+                    $label = '○ Spécial';
+                    $class = 'perf-low';
+                }
+
+                $out[$comp] = [
+                    'competition'    => $comp,
+                    'field_size'     => $field,
+                    'density_label'  => $label,
+                    'density_class'  => $class,
+                    'gold'           => null,
+                    'silver'         => null,
+                    'bronze'         => null,
+                ];
+            }
+
+            $slot = match ((int)$r['place']) {
+                1 => 'gold',
+                2 => 'silver',
+                3 => 'bronze',
+                default => null
+            };
+
+            /*
+        Sprint 1 :
+        si ex-aequo, garder le premier rencontré
+        */
+            if ($slot && empty($out[$comp][$slot])) {
+
+                $out[$comp][$slot] = [
+                    'author' =>
+                    trim($r['prenom'] . ' ' . $r['nom']),
+                    'club' =>
+                    $r['club'],
+                    'total' =>
+                    (int)$r['total'],
+                    'nb_photos' =>
+                    (int)$r['nb_photos']
+                ];
+            }
+        }
+
+        return array_values($out);
     }
 }
