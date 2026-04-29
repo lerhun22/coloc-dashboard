@@ -51,6 +51,7 @@ class Dashboard extends BaseController
 
     public function coloc()
     {
+
         $db = \Config\Database::connect();
 
         /*
@@ -60,6 +61,8 @@ class Dashboard extends BaseController
     */
         $seasonService = new \App\Services\SeasonService();
         $annee = $seasonService->getCurrentSeason($db);
+
+        $this->ensureClassementsFresh($annee);
 
         /*
     ============================================================
@@ -74,7 +77,7 @@ class Dashboard extends BaseController
     🧠 DASHBOARD UR
     ============================================================
     */
-        $dashboardService = new \App\Services\DashboardURService();
+
         helper('competition');
 
         $dashboardService = new DashboardURService();
@@ -83,6 +86,8 @@ class Dashboard extends BaseController
             $rows,
             currentUR()
         );
+
+
 
         /*
     ============================================================
@@ -156,6 +161,8 @@ class Dashboard extends BaseController
 
         $seasonService = new \App\Services\SeasonService();
         $annee = $seasonService->getCurrentSeason($db);
+
+        $this->ensureClassementsFresh($annee);
 
         // 🔥 NOUVEAU provider fiable
         $provider = new \App\Services\DataProviderClubs();
@@ -461,5 +468,42 @@ class Dashboard extends BaseController
             ->getRowArray();
 
         return (int)($row['max_saison'] ?? date('Y'));
+    }
+
+    private function ensureClassementsFresh(int $annee): void
+    {
+        $db = \Config\Database::connect();
+
+        /*
+    Vérifie s'il manque des classements clubs
+    pour les compétitions nationales de la saison
+    */
+        $missing = $db->query("
+        SELECT COUNT(*) nb
+        FROM competition_meta cm
+        LEFT JOIN classementclubs cc
+            ON cc.competitions_id = cm.competition_id
+        WHERE cm.saison = ?
+          AND cm.level IN ('N2','N1','CDF')
+          AND cc.competitions_id IS NULL
+    ", [$annee])->getRowArray();
+
+        if (($missing['nb'] ?? 0) > 0) {
+
+            $service = new \App\Services\NationalStatsService();
+
+            $competitions = $db->table('competition_meta')
+                ->select('competition_id')
+                ->where('saison', $annee)
+                ->whereIn('level', ['N2', 'N1', 'CDF'])
+                ->get()
+                ->getResultArray();
+
+            foreach ($competitions as $c) {
+                $service->rebuildClassementClubs(
+                    (int)$c['competition_id']
+                );
+            }
+        }
     }
 }

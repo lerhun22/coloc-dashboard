@@ -1,0 +1,70 @@
+TABLE_NAME	COLUMN_NAME	DATA_TYPE	COLUMN_TYPE	COLUMN_KEY
+classementauteurs	competitions_id	int	int(11)	PRI
+classementauteurs	participants_id	varchar	varchar(10)	PRI
+classementauteurs	total	smallint	smallint(6)
+classementauteurs	place	smallint	smallint(6)
+classementauteurs	nb_photos	smallint	smallint(6)
+classementclubs	competitions_id	int	int(11)	PRI
+classementclubs	clubs_id	smallint	smallint(6)	PRI
+classementclubs	total	smallint	smallint(6)
+classementclubs	place	smallint	smallint(6)
+classementclubs	nb_photos	smallint	smallint(6)
+classements	competitions_id	int	int(11)	PRI
+classements	afaire	tinyint	tinyint(4)
+classements	graphe	tinyint	tinyint(4)
+classements	photos	tinyint	tinyint(1)
+classements	clubs	tinyint	tinyint(1)
+classements	auteurs	tinyint	tinyint(1)
+clubs	id	smallint	smallint(6)	PRI
+clubs	urs_id	tinyint	tinyint(4)
+clubs	numero	smallint	smallint(6)
+clubs	nom	varchar	varchar(250)
+competitions	id	int	int(11)	PRI
+competitions	numero	smallint	smallint(6)
+competitions	type	tinyint	tinyint(4)
+competitions	urs_id	tinyint	tinyint(4)
+competitions	saison	year	year(4)
+competitions	nom	varchar	varchar(100)
+competitions	date_competition	date	date
+competitions	max_photos_club	int	int(11)
+competitions	max_photos_auteur	int	int(11)
+competitions	param_photos_club	int	int(11)
+competitions	param_photos_auteur	int	int(11)
+competitions	quota	int	int(11)
+competitions	note_min	tinyint	tinyint(4)
+competitions	note_max	tinyint	tinyint(4)
+competitions	nb_auteurs_ur_n2	tinyint	tinyint(4)
+competitions	nb_clubs_ur_n2	tinyint	tinyint(4)
+competitions	pte	tinyint	tinyint(1)
+competitions	nature	tinyint	tinyint(1)
+juges	id	smallint	smallint(6)	PRI
+juges	nom	varchar	varchar(150)
+juges	competitions_id	int	int(11)
+medailles	id	int	int(11)	PRI
+medailles	nom	varchar	varchar(100)
+medailles	fpf	tinyint	tinyint(1)
+medailles	competitions_id	int	int(11)
+notes	juges_id	int	int(11)	PRI
+notes	photos_id	int	int(11)	PRI
+notes	note	tinyint	tinyint(4)
+notes	competitions_id	int	int(11)	MUL
+participants	id	varchar	varchar(10)	PRI
+participants	urs_id	tinyint	tinyint(4)
+participants	clubs_id	smallint	smallint(6)
+participants	nom	varchar	varchar(50)
+participants	prenom	varchar	varchar(50)
+participants	etat_adhesion	tinyint	tinyint(1)
+participants	annee_cotisation	year	year(4)
+photos	id	int	int(11)	PRI
+photos	ean	varchar	varchar(12)
+photos	competitions_id	int	int(11)	MUL
+photos	participants_id	varchar	varchar(10)
+photos	titre	varchar	varchar(100)
+photos	statut	tinyint	tinyint(4)
+photos	place	smallint	smallint(6)
+photos	note_totale	smallint	smallint(6)
+photos	saisie	int	int(11)
+photos	retenue	tinyint	tinyint(1)
+photos	medailles_id	int	int(11)
+photos	passage	int	int(11)
+photos	disqualifie	int	int(11)

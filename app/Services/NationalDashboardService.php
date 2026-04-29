@@ -7,8 +7,8 @@ use CodeIgniter\Database\BaseConnection;
 /**
  * =========================================================
  * NationalDashboardService
- * =========================================================
- * Source officielle NATIONAL = classementclubs
+ * Classement national officiel FPF
+ * Source : classementclubs + competition_meta
  * =========================================================
  */
 class NationalDashboardService
@@ -28,35 +28,46 @@ class NationalDashboardService
     public function getRanking(int $annee): array
     {
         $rows = $this->db->query("
-        SELECT
-            cc.competitions_id,
-            cc.clubs_id,
-            cc.total,
-            cc.place,
-            cc.nb_photos,
+            SELECT
+                cc.competitions_id,
+                cc.clubs_id,
+                cc.total,
+                cc.place,
+                cc.nb_photos,
 
-            cl.nom AS club_nom,
-            cl.urs_id AS ur,
+                cl.nom      AS club_nom,
+                cl.urs_id   AS ur,
 
-            cm.level
+                cm.level
 
-        FROM classementclubs cc
+            FROM classementclubs cc
 
-        JOIN clubs cl ON cl.id = cc.clubs_id
-        JOIN competitions c ON c.id = cc.competitions_id
-        JOIN competition_meta cm ON cm.competition_id = c.id
+            INNER JOIN clubs cl
+                ON cl.id = cc.clubs_id
 
-        WHERE c.saison = ?
-        AND cm.level IN ('N2', 'N1', 'CDF')
-        AND c.nom NOT LIKE '%REGIONAL%' -- 🔥 sécurité
-    ", [$annee])->getResultArray();
+            INNER JOIN competitions c
+                ON c.id = cc.competitions_id
+
+            INNER JOIN competition_meta cm
+                ON cm.competition_id = c.id
+
+            WHERE c.saison = ?
+              AND cm.level IN ('N2','N1','CDF')
+
+            /* ordre stable inter-machines */
+            ORDER BY
+                cc.clubs_id,
+                cm.level,
+                c.id
+        ", [$annee])->getResultArray();
 
         return $this->aggregate($rows);
     }
 
+
     /**
      * =========================================================
-     * Agrégation clubs multi-niveaux
+     * Agrégation multi niveaux par club
      * =========================================================
      */
     private function aggregate(array $rows): array
@@ -65,40 +76,59 @@ class NationalDashboardService
 
         foreach ($rows as $r) {
 
-            $cid = $r['clubs_id'];
+            $clubId = (int)$r['clubs_id'];
+            $level  = strtoupper(trim($r['level']));
+            $points = (float)$r['total'];
 
-            if (!isset($clubs[$cid])) {
-                $clubs[$cid] = [
-                    'club_id'  => $cid,
-                    'club_nom' => $r['club_nom'],
-                    'ur'       => $r['ur'],
-
-                    'N2'  => 0,
-                    'N1'  => 0,
-                    'CDF' => 0,
-                    'total' => 0,
-                ];
-            }
-
-            // 🔥 NORMALISATION CRITIQUE
-            $level = strtoupper(trim($r['level']));
-
-            // 🔥 FILTRE ABSOLU
             if (!in_array($level, ['N2', 'N1', 'CDF'])) {
                 continue;
             }
 
-            $clubs[$cid][$level] += (float)$r['total'];
-            $clubs[$cid]['total'] += (float)$r['total'];
+            if (!isset($clubs[$clubId])) {
+                $clubs[$clubId] = [
+                    'club_id'  => $clubId,
+                    'club_nom' => $r['club_nom'],
+                    'ur'       => $r['ur'],
+
+                    'N2'   => 0,
+                    'N1'   => 0,
+                    'CDF'  => 0,
+                    'total' => 0,
+                ];
+            }
+
+            // cumul (pas écrasement)
+            $clubs[$clubId][$level] += $points;
+            $clubs[$clubId]['total'] += $points;
         }
 
         $clubs = array_values($clubs);
 
-        usort($clubs, fn($a, $b) => $b['total'] <=> $a['total']);
+        /*
+        =========================================================
+        Tri stable :
+        1. total desc
+        2. nom club asc (tie-break)
+        =========================================================
+        */
+        usort($clubs, function ($a, $b) {
 
+            if ($b['total'] != $a['total']) {
+                return $b['total'] <=> $a['total'];
+            }
+
+            return strcmp($a['club_nom'], $b['club_nom']);
+        });
+
+        /*
+        =========================================================
+        Rangs
+        =========================================================
+        */
         $rank = 1;
-        foreach ($clubs as &$c) {
-            $c['rank'] = $rank++;
+
+        foreach ($clubs as &$club) {
+            $club['rank'] = $rank++;
         }
 
         return $clubs;

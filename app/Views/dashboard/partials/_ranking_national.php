@@ -18,64 +18,64 @@
 
         <?php foreach ($top as $c): ?>
 
-            <tr>
+        <tr>
 
-                <td class="rank-col">
-                    <span class="rank-badge">
-                        <?= $c['rang'] ?? $c['rank'] ?>
-                    </span>
-                </td>
+            <td class="rank-col">
+                <span class="rank-badge">
+                    <?= $c['rang'] ?? $c['rank'] ?>
+                </span>
+            </td>
 
-                <td class="club-col">
-                    <?= mb_strimwidth(
+            <td class="club-col">
+                <?= mb_strimwidth(
                         esc((string)($c['nom'] ?? $c['club_nom'])),
                         0,
                         42,
                         '…'
                     ) ?>
-                </td>
+            </td>
 
-                <td class="ur-col">
-                    <?= $c['ur'] ?>
-                </td>
+            <td class="ur-col">
+                <?= $c['ur'] ?>
+            </td>
 
-                <td class="num-col">
-                    <?= number_format(
+            <td class="num-col">
+                <?= number_format(
                         $c['N2'],
                         0,
                         '',
                         ' '
                     ) ?>
-                </td>
+            </td>
 
-                <td class="num-col">
-                    <?= number_format(
+            <td class="num-col">
+                <?= number_format(
                         $c['N1'],
                         0,
                         '',
                         ' '
                     ) ?>
-                </td>
+            </td>
 
-                <td class="num-col">
-                    <?= number_format(
+            <td class="num-col">
+                <?= number_format(
                         $c['CDF'],
                         0,
                         '',
                         ' '
                     ) ?>
-                </td>
+            </td>
 
-                <td class="num-col total-col">
-                    <?= number_format(
+            <td class="num-col total-col">
+                <?= number_format(
                         $c['points'] ?? $c['total'],
                         0,
                         '',
                         ' '
                     ) ?>
-                </td>
+            </td>
 
-            </tr>
+        </tr>
 
         <?php endforeach; ?>
 

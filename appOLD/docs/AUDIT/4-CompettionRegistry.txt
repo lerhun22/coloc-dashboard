@@ -1,0 +1,351 @@
+## Audit FIL 2 — CompetitionRegistry
+
+Là, on arrive au noyau.
+
+Et honnêtement :
+
+```text id="2gpxsa"
+Ceci est beaucoup plus proche d’un vrai référentiel
+que d’une simple config.
+```
+
+Très bonne direction.
+
+Mais… il faut maintenant éviter que ça devienne un **super-objet encyclopédique**.
+
+---
+
+# Verdict global
+
+## Architecture
+
+```text id="7p7k9m"
+Très bon socle
+quasi source de vérité
+mais commence à mélanger 3 registres différents
+```
+
+Je vois :
+
+1. règles compétitions FPF
+2. moteur KPI/scoring
+3. configuration métier analytics
+
+ce n’est pas exactement le même niveau.
+
+---
+
+# 1. Ce qui est excellent ✅
+
+## levels
+
+Très bon.
+
+```php id="hjzv8m"
+$levels
+```
+
+ça c’est du référentiel.
+
+* progression
+* promotion
+* relégation
+* quotas photos
+
+ça appartient ici.
+
+Je figerais.
+
+---
+
+## disciplines
+
+Très bien aussi.
+
+```php id="v52eg9"
+$disciplines
+```
+
+c’est clairement Bible métier.
+
+rien à redire.
+
+---
+
+## rules
+
+Bien placé.
+
+```php id="ymn8mv"
+$rules
+```
+
+cohérent.
+
+---
+
+# 2. Là où je vois un glissement ⚠️
+
+## scoring
+
+Ici :
+
+```php id="0m9h2u"
+$scoring
+```
+
+on bascule partiellement de :
+
+```text id="vfc5q4"
+règles métier
+```
+
+vers
+
+```text id="r4y7q6"
+moteur d’implémentation
+```
+
+Exemple :
+
+```php id="mhe2ch"
+dedup_strategy
+group_by
+normalization
+judges_default
+```
+
+ça ressemble presque à config d’engine.
+
+Pas faux —
+mais autre couche.
+
+Je le séparerais conceptuellement.
+
+---
+
+# 3. business = chevauchement réel ❗
+
+Là je m’arrête.
+
+```php id="l7c5cs"
+$business
+```
+
+chevauche presque `scoring`.
+
+On retrouve :
+
+* points
+* dedup
+* aggregation
+* filters
+* ur
+
+double référentiel potentiel.
+
+C’est exactement ce qu’on voulait éviter.
+
+---
+
+## Je vois un doublon conceptuel :
+
+```text id="3y0tad"
+scoring
+business
+```
+
+=> deux vérités concurrentes possibles.
+
+Risque élevé.
+
+Je fusionnerais ou découperais.
+
+---
+
+# 4. Mon diagnostic :
+
+Tu as en fait 3 registres cachés
+
+## A — Registry métier FPF
+
+```text id="rqq40s"
+levels
+disciplines
+rules
+```
+
+Bible officielle.
+
+---
+
+## B — KPI Engine config
+
+```text id="2ay0qe"
+scoring
+```
+
+moteur calcul.
+
+Autre objet :
+
+```text id="68vfrx"
+ScoringRegistry
+```
+
+possible.
+
+---
+
+## C — Data policy / business semantics
+
+```text id="q0hvjm"
+club_only
+ur source
+dedup policy
+filters
+```
+
+presque un :
+
+```text id="m2qgn4"
+BusinessRulesRegistry
+```
+
+encore autre chose.
+
+---
+
+# 5. Donc…
+
+Je ne corrigerais pas le contenu.
+
+Je corrigerais le périmètre.
+
+Aujourd’hui :
+
+```text id="jtwqxe"
+CompetitionRegistry = un peu trop large
+```
+
+---
+
+## Je viserais
+
+```text id="7ut93m"
+CompetitionRegistry
+ScoringRegistry
+BusinessRulesRegistry
+```
+
+3 petits référentiels.
+
+Beaucoup plus stable.
+
+---
+
+# 6. Et là très important :
+
+ça change l’audit du Mapper.
+
+Parce que :
+
+```text id="g1b5o5"
+CompetitionMapper ne doit plus porter de règles
+il doit lire CompetitionRegistry
+```
+
+et là tout converge.
+
+C’est exactement ce qu’on cherchait.
+
+---
+
+# 7. Très bonne nouvelle :
+
+ta simplification "3 digits / 4 digits"
+peut probablement vivre ici :
+
+```php id="n7wbbe"
+classification_rules
+```
+
+et tuer du parsing.
+
+énorme gain.
+
+---
+
+## 8. Audit score
+
+| Bloc             | Etat           |
+| ---------------- | -------------- |
+| Levels           | ✅ excellent    |
+| Disciplines      | ✅ excellent    |
+| Rules            | ✅ bon          |
+| Scoring          | ⚠️ à isoler    |
+| Business         | ❗chevauchement |
+| Source de vérité | quasi oui      |
+
+---
+
+## Je mettrais :
+
+```text id="n8n8r7"
+Architecture : très bonne
+Périmètre : à resserrer
+Risque principal : registry monolithique
+```
+
+---
+
+# 9. Backlog que je figerais
+
+```text id="g6g8bh"
+[ ] Figer levels/disciplines comme Bible officielle
+[ ] Sortir scoring dans ScoringRegistry
+[ ] Fusionner ou sortir business rules
+[ ] Mapper doit consommer Registry (pas porter les règles)
+[ ] Ajouter classification 3/4 digits au référentiel
+```
+
+---
+
+## 10. Et franchement…
+
+C’est intéressant :
+
+on voit émerger une architecture propre :
+
+```text id="7ohtas"
+Bible (CompetitionRegistry)
+↓
+Mapper (normalisation)
+↓
+Services (calcul)
+↓
+Controllers (orchestration)
+```
+
+Ça commence à être cohérent.
+
+---
+
+## Mon verdict franc
+
+```text id="5j8a52"
+C’est le bon centre de gravité du projet.
+Le danger n’est pas le contenu.
+Le danger est qu’il absorbe trop de couches.
+```
+
+Très différent.
+
+C’est bon signe.
+
+---
+
+### Et maintenant je ferais presque un audit croisé critique :
+
+**Registry vs Mapper vs SQL dashboard**
+— c’est probablement là que les éventuels doublons cachés vont apparaître. Et je soupçonne que c’est le vrai gros sujet du projet.

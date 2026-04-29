@@ -18,6 +18,7 @@ class ImportFromCopain extends BaseController
 
     public function index()
     {
+
         $config = config('Copain');
 
         /*

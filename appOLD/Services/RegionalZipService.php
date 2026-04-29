@@ -1,0 +1,165 @@
+<?php
+
+namespace App\Services;
+
+use App\Services\ZipServiceInterface;
+use App\Libraries\CopainClient;
+use App\Libraries\CompetitionStorage;
+
+class RegionalZipService implements ZipServiceInterface
+{
+    public function process($competition): bool
+    {
+        log_message('debug', 'REGIONAL ZIP -> ' . ($competition->id ?? $competition['id'] ?? 'NULL'));
+
+        if (!$competition) {
+            throw new \Exception("Competition invalide");
+        }
+
+        // 🔒 récupération ID safe (array ou object)
+        $ref = is_array($competition)
+            ? ($competition['id'] ?? null)
+            : ($competition->id ?? null);
+
+        if (!$ref) {
+            throw new \Exception("Competition sans ID");
+        }
+
+        $client  = new CopainClient();
+        $storage = new CompetitionStorage();
+
+        /*
+        =====================
+        STEP 0 — STRUCTURE
+        =====================
+        */
+
+        $paths = $storage->ensureStructure($competition);
+
+        log_message('debug', '[ZIP R] BASE PATH = ' . $paths['base']);
+
+        /*
+        =====================
+        STEP 1 — GENERATE ZIP
+        =====================
+        */
+
+        log_message('debug', '[ZIP R] GENERATE');
+
+        $zip = $client->generateZip(
+            $ref,
+            is_array($competition) ? $competition['type'] : $competition->type
+        );
+
+        if (!$zip || ($zip['code'] ?? 1) != 0) {
+            throw new \Exception("ZIP generation failed");
+        }
+
+        $zipUrl = $zip['zip_photos'] ?? null;
+
+        if (!$zipUrl) {
+            throw new \Exception("ZIP URL manquante");
+        }
+
+        /*
+        =====================
+        STEP 2 — DOWNLOAD
+        =====================
+        */
+
+        $zipPath = WRITEPATH . 'imports/' . $ref . '.zip';
+
+        log_message('debug', '[ZIP R] DOWNLOAD');
+
+        if (!$client->downloadFile($zipUrl, $zipPath)) {
+            throw new \Exception("Download failed");
+        }
+
+        /*
+        =====================
+        STEP 3 — EXTRACT
+        =====================
+        */
+
+        log_message('debug', '[ZIP R] EXTRACT');
+
+        $zipArchive = new \ZipArchive();
+
+        if ($zipArchive->open($zipPath) !== true) {
+            throw new \Exception("ZIP open failed");
+        }
+
+        // 🔥 extraction directe dans le dossier photos
+        $zipArchive->extractTo($paths['photos']);
+        $zipArchive->close();
+
+        log_message('debug', '[ZIP R] EXTRACT OK');
+
+        /*
+        =====================
+        STEP 4 — NORMALISATION
+        =====================
+        */
+
+        $this->flattenPhotos($paths['photos']);
+
+        /*
+        =====================
+        STEP 5 — THUMBS
+        =====================
+        */
+
+        log_message('debug', '[ZIP R] THUMBS');
+
+        $tool = new \App\Controllers\Tools\GenererVignettes();
+        $tool->index($ref);
+
+        /*
+        =====================
+        CLEAN
+        =====================
+        */
+
+        if (file_exists($zipPath)) {
+            unlink($zipPath);
+        }
+
+        log_message('debug', '[ZIP R] DONE');
+
+        return true;
+    }
+
+    /*
+    =====================
+    UTIL — FLATTEN DOSSIERS
+    =====================
+    */
+
+    private function flattenPhotos(string $photosPath): void
+    {
+        if (!is_dir($photosPath)) {
+            log_message('error', '[ZIP R] flattenPhotos: dossier introuvable');
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($photosPath, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+
+            if ($file->isDir()) continue;
+
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
+            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) continue;
+
+            $dest = $photosPath . basename($file);
+
+            // évite overwrite + boucle infinie
+            if ($file->getPathname() !== $dest && !file_exists($dest)) {
+                rename($file->getPathname(), $dest);
+            }
+        }
+    }
+}

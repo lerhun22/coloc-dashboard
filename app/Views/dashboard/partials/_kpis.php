@@ -1,10 +1,8 @@
 <?php
 
-$globalFPF =
-    $dashboard['globalFPF'] ?? [];
-
-$comparison =
-    $dashboard['comparison'] ?? [];
+$globalFPF  = $dashboard['globalFPF'] ?? [];
+$globalUR   = $dashboard['globalUR'] ?? [];
+$comparison = $dashboard['comparison'] ?? [];
 
 ?>
 
@@ -14,34 +12,79 @@ $comparison =
 
     <div class="grid-3">
 
+        <!-- =====================================================
+             CARD 1 : NATIONAL
+        ====================================================== -->
         <div class="card">
-            Clubs actifs
+            <div class="kpi-title">
+                Participation Nationale
+            </div>
+
             <b>
                 <?= $globalFPF['nb_clubs'] ?? 0 ?>
             </b>
+            clubs<br>
+
+            <?= $globalFPF['nb_authors'] ?? 0 ?>
+            auteurs<br>
+
+            <?= number_format(
+                $globalFPF['nb_images'] ?? 0,
+                0,
+                '',
+                ' '
+            ) ?>
+            images
         </div>
 
 
+
+        <!-- =====================================================
+             CARD 2 : TOP UR
+        ====================================================== -->
         <div class="card">
-            Points FPF
+            <div class="kpi-title">
+                Top UR
+            </div>
 
             <b>
-                <?= number_format(
-                    $globalFPF['nb_points'] ?? 0,
-                    0,
-                    '',
-                    ' '
-                ) ?>
-            </b>
+                <?= $comparison['rank_ur'] ?? '-' ?>e / 22
+            </b><br>
+
+            <?= number_format(
+                $globalUR['nb_points'] ?? 0,
+                0,
+                '',
+                ' '
+            ) ?>
+            pts FPF<br>
+
+            <?= $comparison['nb_authors_ranked'] ?? 0 ?>
+            auteurs classés
         </div>
 
 
+
+        <!-- =====================================================
+             CARD 3 : FOCUS UR22
+        ====================================================== -->
         <div class="card highlight">
-            Poids UR
+            <div class="kpi-title">
+                Focus UR22
+            </div>
 
             <b>
-                <?= $comparison['ratio_points'] ?? 0 ?>%
+                <?= $comparison['clubs_engaged'] ?? 0 ?>
+                /
+                <?= $globalUR['nb_clubs'] ?? 0 ?>
             </b>
+            clubs engagés<br>
+
+            <?= $comparison['engagement_rate'] ?? 0 ?>%
+            mobilisation<br>
+
+            <?= $globalUR['nb_authors'] ?? 0 ?>
+            auteurs
         </div>
 
     </div>

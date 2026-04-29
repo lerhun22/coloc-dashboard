@@ -7,7 +7,6 @@ class DashboardURService
     public function build(array $rows, ?int $ur = null): array
 
     {
-
         $ur ??= currentUR();
         /*
         ============================================================
@@ -25,6 +24,7 @@ class DashboardURService
             $classement,
             fn($a, $b) => $b['points'] <=> $a['points']
         );
+
 
         foreach ($classement as $i => &$c) {
             $c['rang'] = $i + 1;
@@ -77,7 +77,19 @@ class DashboardURService
         6. KPIs
         ============================================================
         */
+        /*
+============================================================
+6. KPIs
+============================================================
+*/
+
+        /*
+------------------------------------------------------------
+NATIONAL
+------------------------------------------------------------
+*/
         $globalFPF = [
+
             'nb_clubs' =>
             count($classement),
 
@@ -96,9 +108,29 @@ class DashboardURService
                     'total_images'
                 )
             ),
+
+            // si disponible dans dataset clubs
+            'nb_authors' =>
+            array_sum(
+                array_map(
+                    fn($c) =>
+                    $c['nb_auteurs']
+                        ?? $c['auteurs']
+                        ?? $c['nb_authors']
+                        ?? 0,
+                    $classement
+                )
+            ),
         ];
 
+
+        /*
+------------------------------------------------------------
+UR22
+------------------------------------------------------------
+*/
         $globalUR = [
+
             'nb_clubs' =>
             count($urClubs),
 
@@ -117,10 +149,55 @@ class DashboardURService
                     'total_images'
                 )
             ),
+
+            'nb_authors' =>
+            array_sum(
+                array_map(
+                    fn($c) =>
+                    $c['nb_auteurs']
+                        ?? $c['auteurs']
+                        ?? $c['nb_authors']
+                        ?? 0,
+                    $classement
+                )
+            ),
         ];
 
+
+        /*
+------------------------------------------------------------
+Clubs engagés en compétitions nationales
+(au moins 1 point ou 1 image en national)
+------------------------------------------------------------
+*/
+        $clubsEngaged = count(
+            array_filter(
+                $urClubs,
+                fn($club) => ($club['points'] ?? 0) > 0
+                    || ($club['total_images'] ?? 0) > 0
+            )
+        );
+
+        $engagementRate =
+            $globalUR['nb_clubs']
+            ? round(
+                $clubsEngaged
+                    /
+                    $globalUR['nb_clubs']
+                    * 100,
+                0
+            )
+            : 0;
+
+
+        /*
+------------------------------------------------------------
+COMPARAISON / KPI CARDS
+------------------------------------------------------------
+*/
         $comparison = [
 
+            // ancien poids UR conservé
             'ratio_points' =>
             $globalFPF['nb_points']
                 ? round(
@@ -141,8 +218,28 @@ class DashboardURService
                         * 100,
                     1
                 )
-                : 0
+                : 0,
+
+            /*
+    TOP UR
+    */
+            'rank_ur' =>
+            $urRank ?? null,
+
+            'nb_authors_ranked' =>
+            $globalUR['nb_authors'],
+
+
+            /*
+    FOCUS UR22
+    */
+            'clubs_engaged' =>
+            $clubsEngaged,
+
+            'engagement_rate' =>
+            $engagementRate,
         ];
+
 
         $comparison['delta'] =
             $comparison['ratio_points']
