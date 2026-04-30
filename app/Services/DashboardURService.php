@@ -2,12 +2,24 @@
 
 namespace App\Services;
 
+use App\Services\SeasonService;
+
 class DashboardURService
 {
+
+    protected $db;
+
+    public function __construct()
+    {
+        $this->db = \Config\Database::connect();
+    }
+
     public function build(array $rows, ?int $ur = null): array
 
     {
         $ur ??= currentUR();
+        $userUR = $ur;
+
         /*
         ============================================================
         1. Agrégation clubs
@@ -72,22 +84,43 @@ class DashboardURService
                 $classement
             );
 
+        $rankUR = null;
+
+        foreach ($urRanking as $r) {
+            if ((int)$r['ur'] === $userUR) {
+                $rankUR = $r['rank'];
+                break;
+            }
+        }
+
+        $urRankingNational =
+            $this->buildURRanking(
+                $classement,
+                true // 🔥 national only
+            );
+
+        $rankURNational = null;
+
+        foreach ($urRankingNational as $r) {
+            if ((int)$r['ur'] === $userUR) {
+                $rankURNational = $r['rank'];
+                break;
+            }
+        }
+
         /*
         ============================================================
         6. KPIs
         ============================================================
         */
-        /*
-============================================================
-6. KPIs
-============================================================
-*/
 
         /*
 ------------------------------------------------------------
 NATIONAL
 ------------------------------------------------------------
 */
+
+        $annee = 2026;
         $globalFPF = [
 
             'nb_clubs' =>
@@ -109,17 +142,20 @@ NATIONAL
                 )
             ),
 
+
             // si disponible dans dataset clubs
-            'nb_authors' =>
-            array_sum(
-                array_map(
-                    fn($c) =>
-                    $c['nb_auteurs']
-                        ?? $c['auteurs']
-                        ?? $c['nb_authors']
-                        ?? 0,
-                    $classement
-                )
+            'nb_authors' => (int)(
+                $this->db->query("
+        SELECT COUNT(DISTINCT LEFT(ean,10)) total
+        FROM photos
+        WHERE competitions_id IN (
+            SELECT competition_id
+            FROM competition_meta
+            WHERE saison = ?
+              AND level IN ('N2','N1','CDF')
+                AND is_official = 1
+        )
+    ", [$annee])->getRowArray()['total'] ?? 0
             ),
         ];
 
@@ -129,6 +165,13 @@ NATIONAL
 UR22
 ------------------------------------------------------------
 */
+
+        $clubIds = array_column($urClubs, 'numero');
+
+        $clubList = !empty($clubIds)
+            ? implode(',', array_map('intval', $clubIds))
+            : '0';
+
         $globalUR = [
 
             'nb_clubs' =>
@@ -149,17 +192,19 @@ UR22
                     'total_images'
                 )
             ),
-
-            'nb_authors' =>
-            array_sum(
-                array_map(
-                    fn($c) =>
-                    $c['nb_auteurs']
-                        ?? $c['auteurs']
-                        ?? $c['nb_authors']
-                        ?? 0,
-                    $classement
-                )
+            'nb_authors' => (int)(
+                $this->db->query("
+    SELECT COUNT(DISTINCT LEFT(ean,10)) AS total
+    FROM photos
+    WHERE SUBSTRING(ean,3,4) IN ($clubList)
+      AND competitions_id IN (
+          SELECT competition_id
+          FROM competition_meta
+          WHERE saison = ?
+            AND level IN ('N2','N1','CDF')
+            AND is_official = 1
+      )
+", [$annee])->getRowArray()['total'] ?? 0
             ),
         ];
 
@@ -170,11 +215,23 @@ Clubs engagés en compétitions nationales
 (au moins 1 point ou 1 image en national)
 ------------------------------------------------------------
 */
+
+
+
         $clubsEngaged = count(
             array_filter(
                 $urClubs,
-                fn($club) => ($club['points'] ?? 0) > 0
-                    || ($club['total_images'] ?? 0) > 0
+                fn($club) => (
+                    ($club['competN2'] ?? 0) +
+                    ($club['competN1'] ?? 0) +
+                    ($club['competCDF'] ?? 0)
+                ) > 0
+                    ||
+                    (
+                        ($club['N2'] ?? 0) +
+                        ($club['N1'] ?? 0) +
+                        ($club['CDF'] ?? 0)
+                    ) > 0
             )
         );
 
@@ -195,6 +252,7 @@ Clubs engagés en compétitions nationales
 COMPARAISON / KPI CARDS
 ------------------------------------------------------------
 */
+
         $comparison = [
 
             // ancien poids UR conservé
@@ -223,8 +281,10 @@ COMPARAISON / KPI CARDS
             /*
     TOP UR
     */
+            'rank_ur_national' => $rankURNational,
+
             'rank_ur' =>
-            $urRank ?? null,
+            $rankUR ?? null,
 
             'nb_authors_ranked' =>
             $globalUR['nb_authors'],
@@ -253,8 +313,7 @@ COMPARAISON / KPI CARDS
         */
         $matrices =
             $this->buildCompetitionMatrices(
-                $rows,
-                $ur
+                $rows
             );
 
         $clubColumns =
@@ -343,6 +402,8 @@ compléter depuis matrices
         $laureatePodiums =
             $this->buildLaureatePodiums();
 
+        //dd($laureatePodiums);
+
         return [
 
             'classementClubs'
@@ -383,6 +444,7 @@ compléter depuis matrices
             'clubObservatory' => $clubObservatory,
             'obsSummary'      => $obsSummary,
             'dashboardLaureates' => $laureatePodiums,
+
         ];
     }
 
@@ -512,6 +574,12 @@ Agrégation clubs
     ==========================
     */
 
+        $rows = array_filter($rows, function ($r) {
+            return
+                !empty($r['club_id']) &&
+                !empty($r['ur']);
+        });
+
         foreach ($rows as $r) {
 
             $id = (int)$r['club_id'];
@@ -530,6 +598,11 @@ Agrégation clubs
                     'N2' => 0,
                     'N1' => 0,
                     'CDF' => 0,
+
+                    'competR'   => 0,
+                    'competN2'  => 0,
+                    'competN1'  => 0,
+                    'competCDF' => 0,
 
                     'total_images' => 0,
 
@@ -558,19 +631,23 @@ Agrégation clubs
 
                 case 'REGIONAL':
                     $clubs[$id]['R'] += $points;
+                    $clubs[$id]['competR']++;   // ✅ ajout
                     break;
 
                 case 'N2':
                     $clubs[$id]['N2'] += $points;
+                    $clubs[$id]['competN2']++;   // ✅ ajout
                     break;
 
                 case 'N1':
                     $clubs[$id]['N1'] += $points;
+                    $clubs[$id]['competN1']++;   // ✅ ajout
                     break;
 
                 case 'CDF':
                 case 'COUPE':
                     $clubs[$id]['CDF'] += $points;
+                    $clubs[$id]['competCDF']++;   // ✅ ajout
                     break;
             }
         }
@@ -900,47 +977,50 @@ Typologie finale V1 (stable)
     Classement UR
     ============================================================
     */
-    private function buildURRanking(
-        array $classement
-    ): array {
+    private function buildURRanking(array $classement, bool $nationalOnly = false): array
+    {
         $urs = [];
 
         foreach ($classement as $c) {
 
-            $ur =
-                (int)(
-                    $c['ur'] ?? 0
-                );
-
-            if (!$ur) {
-                continue;
-            }
+            $ur = (int)($c['ur'] ?? 0);
+            if (!$ur) continue;
 
             if (!isset($urs[$ur])) {
-
                 $urs[$ur] = [
-                    'ur' => $ur,
+                    'ur'     => $ur,
                     'points' => 0,
-                    'clubs' => 0
+                    'clubs'  => 0,
+                    'images' => 0
                 ];
             }
 
-            $urs[$ur]['points']
-                += $c['points'];
+            // 🎯 choix du scope
+            $points = $nationalOnly
+                ? ($c['N2'] + $c['N1'] + $c['CDF'])
+                : $c['points'];
+
+            $urs[$ur]['points'] += $points;
 
             $urs[$ur]['clubs']++;
+
+            // tu peux aussi filtrer les images si besoin plus tard
+            $urs[$ur]['images'] += (int)($c['total_images'] ?? 0);
         }
 
-        $urs =
-            array_values($urs);
+        $urs = array_values($urs);
 
         usort(
             $urs,
             fn($a, $b) =>
-            $b['points']
-                <=>
-                $a['points']
+            $b['points'] <=> $a['points']
         );
+
+        foreach ($urs as $i => &$row) {
+            $row['rank'] = $i + 1;
+        }
+
+        unset($row);
 
         return $urs;
     }
@@ -1040,17 +1120,18 @@ Typologie finale V1 (stable)
 FIL2B — Auteurs lauréats contextualisés
 ============================================================
 */
-    private function buildLaureatePodiums(): array
+
+    private function buildLaureatePodiumsOLD(): array
     {
         $db = \Config\Database::connect();
 
         $rows = $db->query("
         SELECT
-            c.nom competition,
+            c.nom AS competition,
             ca.place,
             pa.nom,
             pa.prenom,
-            cl.numero club,
+            cl.numero AS club,
             ca.total,
             ca.nb_photos,
             x.field_size
@@ -1069,16 +1150,16 @@ FIL2B — Auteurs lauréats contextualisés
         JOIN (
             SELECT
                 competitions_id,
-                COUNT(*) field_size
+                COUNT(*) AS field_size
             FROM photos
             GROUP BY competitions_id
         ) x
             ON x.competitions_id = ca.competitions_id
 
-        WHERE ca.place IN (1,2,3)
+        WHERE ca.place <= 5
           AND ca.total > 0
 
-        ORDER BY c.nom, ca.place
+        ORDER BY c.nom, ca.place ASC
     ")->getResultArray();
 
         $out = [];
@@ -1087,6 +1168,11 @@ FIL2B — Auteurs lauréats contextualisés
 
             $comp = $r['competition'];
 
+            /*
+        =====================================================
+        INIT COMPETITION
+        =====================================================
+        */
             if (!isset($out[$comp])) {
 
                 $field = (int)$r['field_size'];
@@ -1110,37 +1196,227 @@ FIL2B — Auteurs lauréats contextualisés
                     'field_size'     => $field,
                     'density_label'  => $label,
                     'density_class'  => $class,
-                    'gold'           => null,
-                    'silver'         => null,
-                    'bronze'         => null,
+
+                    'gold'   => null,
+                    'silver' => null,
+                    'bronze' => null,
+
+                    // 🔥 nouveau
+                    'top5'   => [],
+                    'strikes' => [],
                 ];
             }
 
-            $slot = match ((int)$r['place']) {
-                1 => 'gold',
-                2 => 'silver',
-                3 => 'bronze',
-                default => null
-            };
+            $author = trim($r['prenom'] . ' ' . $r['nom']);
 
             /*
-        Sprint 1 :
-        si ex-aequo, garder le premier rencontré
+        =====================================================
+        STOCK TOP 5 (pour analyse)
+        =====================================================
         */
-            if ($slot && empty($out[$comp][$slot])) {
+            $out[$comp]['top5'][] = [
+                'author' => $author,
+                'place'  => (int)$r['place']
+            ];
 
+            /*
+        =====================================================
+        TOP 3 (affichage)
+        =====================================================
+        */
+            $place = (int)$r['place'];
+
+            if ($place === 1) {
+                $slot = 'gold';
+            } elseif ($place === 2) {
+                $slot = 'silver';
+            } elseif ($place === 3) {
+                $slot = 'bronze';
+            } else {
+                $slot = null;
+            }
+
+            if ($slot) {
                 $out[$comp][$slot] = [
-                    'author' =>
-                    trim($r['prenom'] . ' ' . $r['nom']),
-                    'club' =>
-                    $r['club'],
-                    'total' =>
-                    (int)$r['total'],
-                    'nb_photos' =>
-                    (int)$r['nb_photos']
+                    'author'    => $author,
+                    'club'      => $r['club'],
+                    'total'     => (int)$r['total'],
+                    'nb_photos' => (int)$r['nb_photos']
                 ];
             }
         }
+
+        /*
+    =====================================================
+    DETECTION STRIKES (≥2 dans top5)
+    =====================================================
+    */
+        foreach ($out as &$comp) {
+
+            $counts = [];
+
+            foreach ($comp['top5'] as $a) {
+                $name = $a['author'];
+                $counts[$name] = ($counts[$name] ?? 0) + 1;
+            }
+
+            foreach ($counts as $name => $count) {
+                if ($count >= 2) {
+                    $comp['strikes'][] = $name;
+                }
+            }
+        }
+        unset($comp);
+
+        return array_values($out);
+    }
+
+
+    private function buildLaureatePodiums(): array
+    {
+        $db = \Config\Database::connect();
+
+        $rows = $db->query("
+        SELECT
+            c.nom AS competition,
+            p.place,
+            pa.nom,
+            pa.prenom,
+            cl.numero AS club,
+            p.note_totale AS total,
+            1 AS nb_photos,
+
+            x.field_size
+
+        FROM photos p
+
+        JOIN competitions c
+            ON c.id = p.competitions_id
+
+        JOIN participants pa
+            ON pa.id = p.participants_id
+
+        JOIN clubs cl
+            ON cl.id = pa.clubs_id
+
+        JOIN (
+            SELECT competitions_id, COUNT(*) AS field_size
+            FROM photos
+            GROUP BY competitions_id
+        ) x
+            ON x.competitions_id = p.competitions_id
+
+        WHERE p.place <= 5
+            AND p.note_totale > 0
+            AND p.disqualifie = 0
+
+        ORDER BY c.nom, p.place ASC
+    ")->getResultArray();
+
+
+        $out = [];
+
+        foreach ($rows as $r) {
+
+            $comp = $r['competition'];
+
+            /*
+        =====================================================
+        INIT COMPETITION
+        =====================================================
+        */
+            if (!isset($out[$comp])) {
+
+                $field = (int)$r['field_size'];
+
+                if ($field >= 900) {
+                    $label = '🔥 Elite';
+                    $class = 'perf-good';
+                } elseif ($field >= 700) {
+                    $label = '▲ Haute';
+                    $class = 'perf-good';
+                } elseif ($field >= 300) {
+                    $label = '● Dense';
+                    $class = 'perf-mid';
+                } else {
+                    $label = '○ Spécial';
+                    $class = 'perf-low';
+                }
+
+                $out[$comp] = [
+                    'competition'    => $comp,
+                    'field_size'     => $field,
+                    'density_label'  => $label,
+                    'density_class'  => $class,
+
+                    'gold'   => null,
+                    'silver' => null,
+                    'bronze' => null,
+
+                    'top5'   => [],
+                    'strikes' => [],
+                ];
+            }
+
+            $author = trim($r['prenom'] . ' ' . $r['nom']);
+            $place  = (int)$r['place'];
+
+            /*
+        =====================================================
+        TOP 5 (image réel)
+        =====================================================
+        */
+            $out[$comp]['top5'][] = [
+                'author' => $author,
+                'place'  => $place
+            ];
+
+            /*
+        =====================================================
+        PODIUM (place réel)
+        =====================================================
+        */
+            $slot = null;
+
+            if ($place === 1) {
+                $slot = 'gold';
+            } elseif ($place === 2) {
+                $slot = 'silver';
+            } elseif ($place === 3) {
+                $slot = 'bronze';
+            }
+
+            if ($slot) {
+                $out[$comp][$slot] = [
+                    'author'    => $author,
+                    'club'      => $r['club'],
+                    'total'     => (int)$r['total'],
+                    'nb_photos' => 1 // image unique
+                ];
+            }
+        }
+
+        /*
+    =====================================================
+    DETECTION STRIKES (≥2 dans top5)
+    =====================================================
+    */
+        foreach ($out as &$comp) {
+
+            $counts = [];
+
+            foreach ($comp['top5'] as $a) {
+                $name = $a['author'];
+                $counts[$name] = ($counts[$name] ?? 0) + 1;
+            }
+
+            foreach ($counts as $name => $count) {
+                if ($count >= 2) {
+                    $comp['strikes'][] = $name;
+                }
+            }
+        }
+        unset($comp);
 
         return array_values($out);
     }

@@ -1,4 +1,8 @@
-<?php if (empty($laureates)) return; ?>
+<?php if (empty($laureates)) return;
+
+//dd($laureates);
+
+?>
 
 <div class="section">
 
@@ -16,6 +20,7 @@
             <th>🥇</th>
             <th>🥈</th>
             <th>🥉</th>
+            <th>⚡</th>
         </tr>
 
         <?php foreach ($laureates as $row): ?>
@@ -71,7 +76,20 @@
 
                     </td>
 
+
                 <?php endforeach; ?>
+
+                <td>
+                    <?php if (!empty($row['strikes'])): ?>
+                        <?php foreach ($row['strikes'] as $s): ?>
+                            <div class="strike">
+                                ⚡ <?= esc($s) ?>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        —
+                    <?php endif; ?>
+                </td>
 
             </tr>
 

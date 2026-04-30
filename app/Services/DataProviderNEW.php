@@ -61,6 +61,7 @@ class DataProviderClubs
             $r['club_id'] = (int)$r['club_id'];
             $r['points']  = (float)$r['points'];
             $r['ur']      = (int)$r['ur'];
+            $r['total_images'] = (int)($r['nb_photos'] ?? 0);
 
             // compat avec ancien service
             $r['is_individual'] = false;

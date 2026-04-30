@@ -87,8 +87,6 @@ class Dashboard extends BaseController
             currentUR()
         );
 
-
-
         /*
     ============================================================
     🏆 CLASSEMENT NATIONAL OFFICIEL (🔥 clé)
@@ -150,6 +148,7 @@ class Dashboard extends BaseController
 
             // ✨ WOW
             'wow'         => $wow,
+
         ]);
     }
 
@@ -282,7 +281,7 @@ class Dashboard extends BaseController
         $global = $syntheseService->computeGlobalStats($rows);
 
         $classementClubs = $classementService
-            ->computeClubRankingFromRows($rows, ['ur_only' => true]);
+            ->computeClubRankingFromRows($rows);
 
         $auteurs = $classementService
             ->computeAuthorRankingFromRows($rows, ['ur_only' => true]);

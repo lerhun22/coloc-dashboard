@@ -27,35 +27,22 @@ class CompetitionStatsService
         // =========================
         // 👤 AUTEURS
         // =========================
-        if ($isJudged) {
-            $author_count = $this->db->table('classementauteurs')
-                ->where('competitions_id', $competitionId)
-                ->countAllResults();
-        } else {
-            $author_count = $this->db->table('photos')
-                ->select('COUNT(DISTINCT participants_id) as total')
-                ->where('competitions_id', $competitionId)
-                ->get()
-                ->getRow()
-                ->total ?? 0;
-        }
+        $author_count = $this->db->table('photos')
+            ->select('COUNT(DISTINCT LEFT(ean,10)) as total')
+            ->where('competitions_id', $competitionId)
+            ->get()
+            ->getRow()
+            ->total ?? 0;
 
         // =========================
         // 🏢 CLUBS
         // =========================
-        if ($isJudged) {
-            $club_count = $this->db->table('classementclubs')
-                ->where('competitions_id', $competitionId)
-                ->countAllResults();
-        } else {
-            $club_count = $this->db->table('photos p')
-                ->select('COUNT(DISTINCT pa.clubs_id) as total')
-                ->join('participants pa', 'pa.id = p.participants_id')
-                ->where('p.competitions_id', $competitionId)
-                ->get()
-                ->getRow()
-                ->total ?? 0;
-        }
+        $club_count = $this->db->table('photos')
+            ->select('COUNT(DISTINCT LEFT(ean,6)) as total')
+            ->where('competitions_id', $competitionId)
+            ->get()
+            ->getRow()
+            ->total ?? 0;
 
         // =========================
         // 📊 MOYENNES

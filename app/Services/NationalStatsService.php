@@ -130,8 +130,8 @@ class NationalStatsService
             =====================================================
             ⚠️ Adapter si ton format change
             */
-            $participant = substr($ean, 0, 6);
-            $club        = substr($ean, 0, 4);
+            $participant = substr($ean, 0, 10); // UR+club+membre
+            $club        = substr($ean, 0, 6);  // UR+club
             $ur          = (int) substr($ean, 0, 2);
 
             $buffer[$cid]['participants'][$participant] = true;

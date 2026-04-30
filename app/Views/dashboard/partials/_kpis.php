@@ -48,29 +48,28 @@ $comparison = $dashboard['comparison'] ?? [];
             </div>
 
             <b>
-                <?= $comparison['rank_ur'] ?? '-' ?>e / 22
+                <?= $comparison['rank_ur_national'] ?? '-' ?>e / 22
             </b><br>
 
             <?= number_format(
-                $globalUR['nb_points'] ?? 0,
+                $globalUR['nb_images'] ?? 0,
                 0,
                 '',
                 ' '
             ) ?>
-            pts FPF<br>
+            images <br>
 
             <?= $comparison['nb_authors_ranked'] ?? 0 ?>
             auteurs classés
         </div>
 
-
-
         <!-- =====================================================
-             CARD 3 : FOCUS UR22
+             CARD 2 : FOCUS UR USER
         ====================================================== -->
+
         <div class="card highlight">
             <div class="kpi-title">
-                Focus UR22
+                Focus <?= env('copain.uruser') ?: 22; ?>
             </div>
 
             <b>

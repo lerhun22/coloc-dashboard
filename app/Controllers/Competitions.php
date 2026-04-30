@@ -263,6 +263,40 @@ class Competitions extends BaseController
         END AS club
     ")
             ->join('participants pa', 'pa.id = p.participants_id', 'left')
+
+            // 🔥 JOIN basé sur EAN (clé de la solution)
+            ->join('clubs cl', "cl.numero = SUBSTRING(p.ean, 3, 4)", 'left')
+
+            ->where('p.competitions_id', $id)
+            ->orderBy('p.place', 'ASC')
+            ->orderBy('p.saisie', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $photosOLD = $db->table('photos p')
+            ->select("
+        p.id,
+        p.ean,
+        p.titre,
+        p.saisie,
+        p.passage,
+        p.place,
+
+        CASE 
+            WHEN SUBSTRING(p.ean,1,2) = '{$ur}'
+                 AND pa.nom IS NOT NULL
+            THEN CONCAT(pa.prenom, ' ', pa.nom)
+            ELSE ''
+        END AS auteur,
+
+        CASE 
+            WHEN SUBSTRING(p.ean,1,2) = '{$ur}'
+                 AND cl.nom IS NOT NULL
+            THEN cl.nom
+            ELSE ''
+        END AS club
+    ")
+            ->join('participants pa', 'pa.id = p.participants_id', 'left')
             ->join('clubs cl', 'cl.id = pa.clubs_id', 'left')
             ->where('p.competitions_id', $id)
             ->orderBy('p.place', 'ASC')

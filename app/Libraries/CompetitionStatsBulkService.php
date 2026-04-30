@@ -69,8 +69,11 @@ class CompetitionStatsBulkService
         // =========================
         // 👤 AUTEURS (AVANT JUGEMENT)
         // =========================
+
         $authors = $this->db->query("
-            SELECT competitions_id, COUNT(DISTINCT participants_id) as author_count
+            SELECT
+                competitions_id,
+                COUNT(DISTINCT LEFT(ean,10)) as author_count
             FROM photos
             WHERE competitions_id IN (" . implode(',', $competitionIds) . ")
             GROUP BY competitions_id
@@ -206,7 +209,9 @@ class CompetitionStatsBulkService
         =========================================================
         */
         $authors = $this->db->query("
-            SELECT competitions_id, COUNT(DISTINCT participants_id) as author_count
+            SELECT
+                competitions_id,
+                COUNT(DISTINCT LEFT(ean,10)) as author_count
             FROM photos
             WHERE competitions_id IN ($ids)
             GROUP BY competitions_id
