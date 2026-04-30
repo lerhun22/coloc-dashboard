@@ -1,10 +1,24 @@
+# Dépendances
 /vendor/
-/writable/
-uploads/
-/.env
 /node_modules/
+
+# Fichiers système
 .DS_Store
-/public/uploads/
-*.zip
+
+# Environnement
+.env
+
+# Logs / archives
 *.log
-public/null/ci_session*
+*.zip
+
+# Writable (cache, sessions, uploads temporaires)
+/writable/
+
+# Uploads (⚠️ données volumineuses / externes)
+/uploads/
+/public/uploads/
+
+# Optionnel : IDE
+.vscode/
+.idea/
