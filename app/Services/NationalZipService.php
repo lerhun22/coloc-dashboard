@@ -107,7 +107,7 @@ class NationalZipService
         =====================
         */
 
-        log_message('debug', '[ZIP N] EXTRACT');
+        log_message('debug', '[ZIP N] EXTRACT START');
 
         ini_set('memory_limit', '1024M');
         set_time_limit(0);
@@ -130,7 +130,7 @@ class NationalZipService
 
         $zipArchive->close();
 
-        log_message('debug', '[ZIP N] EXTRACT OK');
+        log_message('debug', '[ZIP N] EXTRACT DONE');
 
         /*
         =====================

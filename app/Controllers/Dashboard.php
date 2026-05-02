@@ -8,6 +8,7 @@ use App\Services\ClassementService;
 use App\Services\JugementService;
 use App\Services\DataPipelineService;
 use App\Services\DashboardURService;
+use App\Services\ExportDashboardExcelService;
 use App\Services\SeasonService;
 use App\Services\CompetitionLaureatesService;
 use App\Services\DataProviderClubs;
@@ -41,6 +42,23 @@ class Dashboard extends BaseController
         ]);
 
         return view('dashboard/index', $data);
+    }
+
+    public function export()
+    {
+        $annee = $this->getCurrentSeason(\Config\Database::connect());
+
+        $pipeline = new DataPipelineService();
+
+        $rows = $pipeline->getRowsClean($annee);
+
+        $dashboard = new DashboardURService();
+        $data = $dashboard->build($rows);
+
+        $export = new ExportDashboardExcelService();
+        $file = $export->generate($data);
+
+        return $this->response->download($file, null);
     }
 
     /*
@@ -180,52 +198,6 @@ class Dashboard extends BaseController
             'debug'  => $result['debug'],
         ]);
     }
-
-    public function export()
-    {
-        $annee = $this->getCurrentSeason(\Config\Database::connect());
-
-        $pipeline = new DataPipelineService();
-        $rows = $pipeline->getRowsClean($annee);
-
-        $dashboard = new DashboardURService();
-        $data = $dashboard->build($rows);
-
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-
-        // ONGLET 1
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Clubs');
-
-        $sheet->fromArray(['Rang', 'Club', 'Points'], NULL, 'A1');
-
-        $r = 2;
-        foreach ($data['classementClubs'] as $c) {
-            $sheet->fromArray([$c['rang'] ?? '', $c['nom'], $c['points']], NULL, "A$r");
-            $r++;
-        }
-
-        // ONGLET 2
-        $sheet2 = $spreadsheet->createSheet();
-        $sheet2->setTitle('UR');
-
-        $sheet2->fromArray(['UR', 'Points', 'Clubs'], NULL, 'A1');
-
-        $r = 2;
-        foreach ($data['urRanking'] as $u) {
-            $sheet2->fromArray([$u['ur'], $u['points'], $u['clubs']], NULL, "A$r");
-            $r++;
-        }
-
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="dashboard.xlsx"');
-
-        $writer->save('php://output');
-        exit;
-    }
-
 
     /*
     ============================================================

@@ -144,7 +144,7 @@ class CopainClient
     {
         set_time_limit(0);
 
-        log_message('debug', 'DOWNLOAD URL = ' . $url);
+        log_message('debug', '[DOWNLOAD] URL = ' . $url);
 
         $dir = dirname($dest);
 
@@ -159,16 +159,14 @@ class CopainClient
         $fp = fopen($dest, 'wb');
 
         if (!$fp) {
-            log_message('error', 'FOPEN FAIL ' . $dest);
+            log_message('error', '[DOWNLOAD] fopen failed: ' . $dest);
             return false;
         }
 
         $ch = curl_init($url);
 
-        // 🔥 seuil de log = 50 MB
+        // 🔥 log tous les 50 MB
         $logStep = 50 * 1024 * 1024;
-
-        // 🔥 prochain seuil à atteindre
         $nextLog = $logStep;
 
         curl_setopt_array($ch, [
@@ -185,7 +183,7 @@ class CopainClient
             CURLOPT_TIMEOUT => 0,
 
             CURLOPT_USERAGENT => "Mozilla/5.0",
-            CURLOPT_REFERER => "https://copain.federation-photo.fr/",
+            CURLOPT_REFERER  => "https://copain.federation-photo.fr/",
 
             CURLOPT_HTTPHEADER => [
                 "Accept: */*",
@@ -202,16 +200,13 @@ class CopainClient
                 $uploaded
             ) use (&$nextLog, $logStep) {
 
-                // 👉 log uniquement tous les 50 MB
                 if ($downloaded < $nextLog) {
-                    return;
+                    return 0;
                 }
 
-                // 👉 avancer le prochain seuil
                 $nextLog += $logStep;
 
                 if ($download_size > 0) {
-
                     $percent = round(($downloaded / $download_size) * 100, 1);
 
                     log_message(
@@ -221,34 +216,106 @@ class CopainClient
                             round($download_size / 1024 / 1024, 1) . " MB)"
                     );
                 } else {
-
                     log_message(
                         'debug',
                         "[DOWNLOAD] " . round($downloaded / 1024 / 1024, 1) . " MB"
                     );
                 }
+
                 return 0;
             },
         ]);
 
+        /*
+    ============================================================
+    EXEC
+    ============================================================
+    */
+
         $result = curl_exec($ch);
 
-        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        $errno = curl_errno($ch);
+        $http  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-        if ($result === false || $http !== 200) {
+        curl_close($ch);
+        fclose($fp);
+
+        /*
+    ============================================================
+    VALIDATION FICHIER
+    ============================================================
+    */
+
+        if (!file_exists($dest)) {
+            log_message('error', '[DOWNLOAD] file missing after download');
+            return false;
+        }
+
+        $size = filesize($dest);
+
+        log_message(
+            'debug',
+            "[DOWNLOAD] FINAL SIZE = " . round($size / 1024 / 1024, 1) . " MB"
+        );
+
+        // seuil minimum sécurité (10 MB)
+        if ($size < 10 * 1024 * 1024) {
+            log_message('error', '[DOWNLOAD] file too small');
+            return false;
+        }
+
+        /*
+    ============================================================
+    TOLÉRANCE ERREURS CURL
+    ============================================================
+    */
+
+        if ($errno) {
 
             log_message(
-                'error',
-                'DOWNLOAD FAIL: ' .
-                    curl_error($ch) .
-                    " HTTP={$http}"
+                'warning',
+                "[DOWNLOAD WARNING] cURL error ignored: {$error}"
             );
+        }
 
-            curl_close($ch);
-            fclose($fp);
+        if ($http !== 200) {
+
+            log_message(
+                'warning',
+                "[DOWNLOAD WARNING] HTTP code {$http} ignored"
+            );
+        }
+
+        /*
+    ============================================================
+    VALIDATION ZIP (CRITIQUE)
+    ============================================================
+    */
+
+        $zip = new \ZipArchive();
+
+        if ($zip->open($dest) === true) {
+
+            log_message('debug', '[ZIP] VALID OK');
+
+            $zip->close();
+        } else {
+
+            log_message('error', '[ZIP] INVALID / CORRUPTED');
 
             return false;
         }
+
+        /*
+    ============================================================
+    OK
+    ============================================================
+    */
+
+        log_message('debug', '[DOWNLOAD] SUCCESS');
+
+        return true;
     }
 
     /*
@@ -472,6 +539,9 @@ AUTO LOGIN
 
         $start = time();
 
+        $lastSize = 0;
+        $stableCount = 0;
+
         while ((time() - $start) < $timeout) {
 
             clearstatcache();
@@ -489,69 +559,16 @@ AUTO LOGIN
                 str_contains($headers[0], '200')
             ) {
 
-                log_message(
-                    'debug',
-                    '[WAIT ZIP] ZIP DISPONIBLE'
-                );
-
-                return $url;
-            }
-
-            sleep(5);
-        }
-
-        throw new \RuntimeException(
-            "ZIP generation timeout ({$timeout}s)"
-        );
-    }
-
-    public function waitForZipOLD2($ref, $timeout = 300)
-    {
-        $url = "https://copain.federation-photo.fr/webroot/json/zip_photos_{$ref}.zip";
-
-        $start = time();
-
-        while ((time() - $start) < $timeout) {
-
-            $headers = @get_headers($url);
-
-            log_message('debug', '[WAIT ZIP] headers=' . ($headers[0] ?? 'NONE'));
-
-            if ($headers && isset($headers[0]) && str_contains($headers[0], '200')) {
-
-                log_message('debug', '[WAIT ZIP] ZIP DISPONIBLE');
-
-                return $url; // 🔥 STOP ici
-            }
-
-            sleep(5);
-        }
-
-        return false;
-    }
-
-    public function waitForZipOLD($ref, $timeout = 300)
-    {
-        $url = "https://copain.federation-photo.fr/webroot/json/zip_photos_{$ref}.zip";
-
-        $start = time();
-        $lastSize = 0;
-        $stableCount = 0;
-
-        while ((time() - $start) < $timeout) {
-
-            $headers = @get_headers($url);
-
-            log_message('debug', '[WAIT ZIP] headers=' . ($headers[0] ?? 'NONE'));
-
-            if ($headers && isset($headers[0]) && str_contains($headers[0], '200')) {
-
-                // 🔥 taille réelle
+                // 🔥 récupérer taille distante
                 $size = $this->getRemoteFileSize($url);
 
-                log_message('debug', '[WAIT ZIP] size=' . $size);
+                log_message(
+                    'debug',
+                    "[WAIT ZIP] size={$size}"
+                );
 
-                if ($size > 3000000) {
+                // seuil mini (évite fichiers vides)
+                if ($size > 5 * 1024 * 1024) {
 
                     if ($size === $lastSize) {
                         $stableCount++;
@@ -561,8 +578,16 @@ AUTO LOGIN
 
                     $lastSize = $size;
 
+                    log_message('debug', "[WAIT ZIP] stableCount={$stableCount}");
+
                     // 👉 taille stable 2 fois = ZIP terminé
                     if ($stableCount >= 2) {
+
+                        log_message(
+                            'debug',
+                            '[WAIT ZIP] ZIP STABLE OK'
+                        );
+
                         return $url;
                     }
                 }
@@ -571,6 +596,8 @@ AUTO LOGIN
             sleep(5);
         }
 
-        return false;
+        throw new \RuntimeException(
+            "ZIP generation timeout ({$timeout}s)"
+        );
     }
 }

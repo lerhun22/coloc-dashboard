@@ -9,34 +9,35 @@ class DataPipelineService
         $provider = new DataProvider();
         $rows = $provider->getAnnualData($annee);
 
-        $dedup = [];
+        // Debug ponctuel
+        // dd($rows);
+
+        $clean = [];
 
         foreach ($rows as $r) {
 
-            // =====================================================
-            // FILTRES MÉTIER
-            // =====================================================
+            // Sécurité minimale
+            if (empty($r['competition_id'])) continue;
 
-            if (empty($r['is_official'])) continue;
-            if ($r['is_disqualified']) continue;
-            if ($r['is_individual']) continue;
+            // OPTIONNEL : exclure clubs inconnus
+            // if (empty($r['club_id'])) continue;
 
-            if (empty($r['ean'])) continue;
-
-            // =====================================================
-            // DEDUP (EAN + COMPET)
-            // =====================================================
-            $key = $r['ean'] . '_' . $r['competition_id'];
-
-            if (!isset($dedup[$key])) {
-                $dedup[$key] = $r;
-            } else {
-                if ($r['note_totale'] > $dedup[$key]['note_totale']) {
-                    $dedup[$key] = $r;
-                }
-            }
+            $clean[] = [
+                'club_id'         => (int) ($r['club_id'] ?? 0),
+                'club_nom'        => $r['club_nom'] ?? '',
+                'ur'              => (int) ($r['ur'] ?? 0),
+                'points'          => (float) ($r['points'] ?? 0),
+                'nb_photos'       => (int) ($r['nb_photos'] ?? 0),
+                'place'           => (int) ($r['place'] ?? 0),
+                'competition_id'  => (int) ($r['competition_id'] ?? 0),
+                'competition_nom' => $r['competition_nom'] ?? '',
+                'saison'          => $r['saison'] ?? '',
+                'level'           => $r['level'] ?? '',
+                'discipline'      => $r['discipline'] ?? '',
+                'support'         => $r['support'] ?? '',
+            ];
         }
 
-        return array_values($dedup);
+        return $clean;
     }
 }

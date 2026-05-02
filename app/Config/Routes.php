@@ -57,8 +57,6 @@ IMPORT FULL (DB + ZIP)
 */
 $routes->get('import/full/(:num)', 'ImportFromCopain::importFull/$1');
 
-
-
 /*
 👉 UNE SEULE route ZIP → ImportFromCopain
 */
@@ -95,7 +93,8 @@ $routes->get('competitions/(:num)/jugement/disqualify/(:num)', 'Jugement::disqua
 EXPORT
 |--------------------------------------------------------------------------
 */
-$routes->get('export', 'Export::index');
+
+$routes->get('dashboard/export', 'Dashboard::export');
 
 /*
 |--------------------------------------------------------------------------
@@ -113,7 +112,7 @@ TEST
 |--------------------------------------------------------------------------
 */
 
-$routes->get('compute', 'Home::index');
+$routes->get('test', 'Home::index');
 
 $routes->get('compute/(:num)', 'Home::compute/$1');
 

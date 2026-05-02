@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Libraries\CopainLegacyReader;
+use App\Libraries\CompetitionStorage;
 use App\Services\ClassementService;
 use App\Models\PhotoModel;
 
@@ -10,6 +11,8 @@ class Home extends BaseController
 {
     private $email;
     private $password;
+
+    protected CompetitionStorage $storage;
 
     public function __construct()
     {
@@ -22,11 +25,119 @@ class Home extends BaseController
 
     public function index()
     {
+        /* Test Prsence photo */
+
+        $config = config('Copain');
+
+        /*
+    ============================================================
+    🔐 CONFIG
+    ============================================================
+    */
+
+        $email   = $config->email;
+        $password = $config->password;
+        $userUr  = env('copain.uruser') ?: 22;
+        $profile = env('profil.user') ?: 'regional';
+
+        /*
+    ============================================================
+    🍪 RESET COOKIE
+    ============================================================
+    */
+
+        $cookie = WRITEPATH . 'copain_cookie.txt';
+        if (file_exists($cookie)) {
+            unlink($cookie);
+        }
+
+        /*
+    ============================================================
+    📡 FETCH COMPETITIONS
+    ============================================================
+    */
+
+        $reader = new \App\Libraries\CopainLegacyReader();
+
+        $data = $reader->getCompetitions($email, $password) ?? [
+            'competitions' => [],
+            'rcompetitions' => []
+        ];
+
+        //dd($data);
+
+        $competitions  = $data['competitions'] ?? [];
+        $rcompetitions = $data['rcompetitions'] ?? [];
+
+        //dd($rcompetitions);
+
+        $this->storage = new CompetitionStorage();
+
+        $id = 4450;
+
+        $this->storage = new CompetitionStorage();
+
+        $target = null;
+
+        foreach ($rcompetitions as $c) {
+            if ((int)$c['id'] === $id) {
+                $target = $c;
+                break;
+            }
+        }
+
+        if (!$target) {
+            dd('❌ compétition non trouvée');
+        }
+
+        /*
+=====================================================
+DEBUG COMPETITION
+=====================================================
+*/
+        log_message('debug', 'COMPETITION: ' . json_encode($target));
+
+        /*
+=====================================================
+TEST STORAGE
+=====================================================
+*/
+        $folder = $this->storage->findCompetitionFolder($target);
+        log_message('debug', 'FOLDER: ' . json_encode($folder));
+
+        $photosPath = $this->storage->getPhotosPathIfExists($target);
+        log_message('debug', 'PHOTOS PATH: ' . json_encode($photosPath));
+
+        /*
+=====================================================
+SCAN PHOTOS
+=====================================================
+*/
+        $files = [];
+
+        if ($photosPath && is_dir($photosPath)) {
+            foreach (scandir($photosPath) as $f) {
+                if (preg_match('/\.(jpg|jpeg)$/i', $f)) {
+                    $files[] = $f;
+                }
+            }
+        }
+
+        log_message('debug', 'FILES FOUND: ' . count($files));
+        log_message('debug', 'FILES: ' . json_encode(array_slice($files, 0, 5))); // preview
+
+        log_message('debug', 'END');
+
+        return ("OK TEST");
+
+        /* test Compute
+        
         $cid = 734; // ou dynamique
         $service = new ClassementService();
         $service->compute($cid, true);
-
         return redirect()->back()->with('success', 'Classements recalculés');
+        
+        */
     }
 
     public function syntheseUR22()

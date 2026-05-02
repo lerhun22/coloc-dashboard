@@ -81,7 +81,7 @@ class RegionalZipService implements ZipServiceInterface
         =====================
         */
 
-        log_message('debug', '[ZIP R] EXTRACT');
+        log_message('debug', '[ZIP R] EXTRACT START');
 
         $zipArchive = new \ZipArchive();
 
@@ -93,7 +93,7 @@ class RegionalZipService implements ZipServiceInterface
         $zipArchive->extractTo($paths['photos']);
         $zipArchive->close();
 
-        log_message('debug', '[ZIP R] EXTRACT OK');
+        log_message('debug', '[ZIP R] EXTRACT DONE');
 
         /*
         =====================

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Services\SeasonService;
+use App\DTO\ClubRow;
 
 class DashboardURService
 {
@@ -15,553 +16,147 @@ class DashboardURService
     }
 
     public function build(array $rows, ?int $ur = null): array
-
     {
         $ur ??= currentUR();
         $userUR = $ur;
 
         /*
-        ============================================================
-        1. Agrégation clubs
-        ============================================================
-        */
+    ============================================================
+    [1] DATA FOUNDATION
+    - agrégation brute des clubs
+    ============================================================
+    */
         $classement = $this->aggregateByClub($rows);
 
         /*
-        ============================================================
-        2. Tri + rang
-        ============================================================
-        */
-        usort(
-            $classement,
-            fn($a, $b) => $b['points'] <=> $a['points']
-        );
-
+    ============================================================
+    [2] RANKING GLOBAL
+    - tri national
+    - calcul rang
+    ============================================================
+    */
+        usort($classement, fn($a, $b) => $b['points'] <=> $a['points']);
 
         foreach ($classement as $i => &$c) {
             $c['rang'] = $i + 1;
-
-            /*
-            colonne pratique pour la vue
-            */
-            $c['N1_CDF'] =
-                $c['N1'] + $c['CDF'];
+            $c['N1_CDF'] = $c['N1'] + $c['CDF']; // shortcut UI
         }
         unset($c);
 
         /*
-        ============================================================
-        3. Clubs UR
-        ============================================================
-        */
+    ============================================================
+    [3] SCOPE UR
+    - filtrage clubs UR cible
+    ============================================================
+    */
         $urClubs = array_values(
-            array_filter(
-                $classement,
-                fn($c) =>
-                (int)($c['ur'] ?? 0) === $ur
-            )
+            array_filter($classement, fn($c) => (int)$c['ur'] === $ur)
         );
 
         /*
-        ============================================================
-        4. Top national
-        ============================================================
-        */
-        $topNational =
-            array_slice(
-                $classement,
-                0,
-                10
-            );
-
-        /*
-        ============================================================
-        5. Classement UR
-        ============================================================
-        */
-        $urRanking =
-            $this->buildURRanking(
-                $classement
-            );
-
-        $rankUR = null;
-
-        foreach ($urRanking as $r) {
-            if ((int)$r['ur'] === $userUR) {
-                $rankUR = $r['rank'];
-                break;
-            }
-        }
-
-        $urRankingNational =
-            $this->buildURRanking(
-                $classement,
-                true // 🔥 national only
-            );
-
-        $rankURNational = null;
-
-        foreach ($urRankingNational as $r) {
-            if ((int)$r['ur'] === $userUR) {
-                $rankURNational = $r['rank'];
-                break;
-            }
-        }
-
-        /*
-        ============================================================
-        6. KPIs
-        ============================================================
-        */
-
-        /*
-------------------------------------------------------------
-NATIONAL
-------------------------------------------------------------
-*/
-
-        $annee = 2026;
-        $globalFPF = [
-
-            'nb_clubs' =>
-            count($classement),
-
-            'nb_points' =>
-            array_sum(
-                array_column(
-                    $classement,
-                    'points'
-                )
-            ),
-
-            'nb_images' =>
-            array_sum(
-                array_column(
-                    $classement,
-                    'total_images'
-                )
-            ),
-
-
-            // si disponible dans dataset clubs
-            'nb_authors' => (int)(
-                $this->db->query("
-        SELECT COUNT(DISTINCT LEFT(ean,10)) total
-        FROM photos
-        WHERE competitions_id IN (
-            SELECT competition_id
-            FROM competition_meta
-            WHERE saison = ?
-              AND level IN ('N2','N1','CDF')
-                AND is_official = 1
-        )
-    ", [$annee])->getRowArray()['total'] ?? 0
-            ),
-        ];
-
-
-        /*
-------------------------------------------------------------
-UR22
-------------------------------------------------------------
-*/
-
-        $clubIds = array_column($urClubs, 'numero');
-
-        $clubList = !empty($clubIds)
-            ? implode(',', array_map('intval', $clubIds))
-            : '0';
-
-        $globalUR = [
-
-            'nb_clubs' =>
-            count($urClubs),
-
-            'nb_points' =>
-            array_sum(
-                array_column(
-                    $urClubs,
-                    'points'
-                )
-            ),
-
-            'nb_images' =>
-            array_sum(
-                array_column(
-                    $urClubs,
-                    'total_images'
-                )
-            ),
-            'nb_authors' => (int)(
-                $this->db->query("
-    SELECT COUNT(DISTINCT LEFT(ean,10)) AS total
-    FROM photos
-    WHERE SUBSTRING(ean,3,4) IN ($clubList)
-      AND competitions_id IN (
-          SELECT competition_id
-          FROM competition_meta
-          WHERE saison = ?
-            AND level IN ('N2','N1','CDF')
-            AND is_official = 1
-      )
-", [$annee])->getRowArray()['total'] ?? 0
-            ),
-        ];
-
-
-        /*
-------------------------------------------------------------
-Clubs engagés en compétitions nationales
-(au moins 1 point ou 1 image en national)
-------------------------------------------------------------
-*/
-
-
-
-        $clubsEngaged = count(
-            array_filter(
-                $urClubs,
-                fn($club) => (
-                    ($club['competN2'] ?? 0) +
-                    ($club['competN1'] ?? 0) +
-                    ($club['competCDF'] ?? 0)
-                ) > 0
-                    ||
-                    (
-                        ($club['N2'] ?? 0) +
-                        ($club['N1'] ?? 0) +
-                        ($club['CDF'] ?? 0)
-                    ) > 0
-            )
-        );
-
-        $engagementRate =
-            $globalUR['nb_clubs']
-            ? round(
-                $clubsEngaged
-                    /
-                    $globalUR['nb_clubs']
-                    * 100,
-                0
-            )
-            : 0;
-
-
-        /*
-------------------------------------------------------------
-COMPARAISON / KPI CARDS
-------------------------------------------------------------
-*/
-
-        $comparison = [
-
-            // ancien poids UR conservé
-            'ratio_points' =>
-            $globalFPF['nb_points']
-                ? round(
-                    $globalUR['nb_points']
-                        /
-                        $globalFPF['nb_points']
-                        * 100,
-                    1
-                )
-                : 0,
-
-            'ratio_images' =>
-            $globalFPF['nb_images']
-                ? round(
-                    $globalUR['nb_images']
-                        /
-                        $globalFPF['nb_images']
-                        * 100,
-                    1
-                )
-                : 0,
-
-            /*
-    TOP UR
+    ============================================================
+    [4] TOP NATIONAL
+    ============================================================
     */
-            'rank_ur_national' => $rankURNational,
+        $topNational = array_slice($classement, 0, 10);
 
-            'rank_ur' =>
-            $rankUR ?? null,
-
-            'nb_authors_ranked' =>
-            $globalUR['nb_authors'],
-
-
-            /*
-    FOCUS UR22
+        /*
+    ============================================================
+    [5] RANKING UR
+    ============================================================
     */
-            'clubs_engaged' =>
-            $clubsEngaged,
+        $urRanking = $this->buildURRanking($classement);
+        $urRankingNational = $this->buildURRanking($classement, true);
 
-            'engagement_rate' =>
-            $engagementRate,
-        ];
-
-
-        $comparison['delta'] =
-            $comparison['ratio_points']
-            -
-            $comparison['ratio_images'];
+        $rankUR = $this->extractURRank($urRanking, $userUR);
+        $rankURNational = $this->extractURRank($urRankingNational, $userUR);
 
         /*
-        ============================================================
-        7. Matrices compétitions
-        ============================================================
-        */
-        $matrices =
-            $this->buildCompetitionMatrices(
-                $rows
-            );
-
-        $clubColumns =
-            array_column(
-                $urClubs,
-                'numero'
-            );
-
-        sort($clubColumns);
+    ============================================================
+    [6] KPIs (FPF + UR)
+    ⚠️ candidat extraction future → KPIService
+    ============================================================
+    */
+        [$globalFPF, $globalUR, $comparison] =
+            $this->buildKpis($classement, $urClubs, $userUR, $rankUR, $rankURNational);
 
         /*
-        ============================================================
-        8. Insights
-        ============================================================
-        */
-        $insights =
-            $this->buildInsights(
-                $classement,
-                $urClubs,
-                $ur
-            );
-
-
-        $clubLabels = [];
+    ============================================================
+    [7] MATRICES COMPETITIONS
+    ============================================================
+    */
+        $matrices = $this->buildCompetitionMatrices($rows);
 
         /*
-labels depuis clubs UR
-*/
-        foreach ($urClubs as $club) {
-            $clubLabels[$club['numero']] = $club['nom'];
-        }
+    ============================================================
+    [8] INSIGHTS
+    ⚠️ candidat extraction → InsightService
+    ============================================================
+    */
+        $insights = $this->buildInsights($classement, $urClubs, $ur);
 
         /*
-compléter depuis matrices
-*/
-        foreach (
-            [$matrices['national'], $matrices['regional']]
-            as $matrix
-        ) {
-            foreach ($matrix as $comp => $data) {
-
-                $winner =
-                    $data['winner_club']
-                    ?? null;
-
-                if (
-                    $winner &&
-                    !isset($clubLabels[$winner])
-                ) {
-                    $clubLabels[$winner] = 'Club ' . $winner;
-                }
-
-                foreach (
-                    $data['scores'] ?? []
-                    as $club => $pts
-                ) {
-                    if (
-                        !isset($clubLabels[$club])
-                    ) {
-                        $clubLabels[$club] = 'Club ' . $club;
-                    }
-                }
-            }
-        }
+    ============================================================
+    [9] LABELS CLUBS (fallback mapping)
+    ============================================================
+    */
+        $clubLabels = $this->buildClubLabels($urClubs, $matrices);
 
         /*
-        ============================================================
-        9. observatoire clubs
-        ============================================================
-        */
+    ============================================================
+    [10] OBSERVATOIRE CLUBS
+    ⚠️ candidat extraction → ObservatoryService
+    ============================================================
+    */
+        $clubObservatory = $this->buildClubObservatory($urClubs);
+        $obsSummary = $this->buildObservatorySummary($clubObservatory);
 
-        $clubObservatory =
-            $this->buildClubObservatory(
-                $urClubs
-            );
-
-        $obsSummary =
-            $this->buildObservatorySummary(
-                $clubObservatory
-            );
         /*
-============================================================
-10. Capital d'excellence (FIL2B)
-============================================================
-*/
-        $laureatePodiums =
-            $this->buildLaureatePodiums();
+    ============================================================
+    [11] CAPITAL EXCELLENCE
+    ⚠️ candidat extraction → LaureateService
+    ============================================================
+    */
+        $laureatePodiums = $this->buildLaureatePodiums();
 
-        //dd($laureatePodiums);
-
+        /*
+    ============================================================
+    [12] OUTPUT STRUCTURE
+    ============================================================
+    */
         return [
+            'classementClubs' => $classement,
+            'topNational' => $topNational,
+            'urClubs' => $urClubs,
+            'urRanking' => $urRanking,
 
-            'classementClubs'
-            => $classement,
+            'globalFPF' => $globalFPF,
+            'globalUR' => $globalUR,
+            'comparison' => $comparison,
 
-            'topNational'
-            => $topNational,
+            'insights' => $insights,
 
-            'urClubs'
-            => $urClubs,
+            'competitionMatrixNational' => $matrices['national'],
+            'competitionMatrixRegional' => $matrices['regional'],
 
-            'urRanking'
-            => $urRanking,
-
-            'globalFPF'
-            => $globalFPF,
-
-            'globalUR'
-            => $globalUR,
-
-            'comparison'
-            => $comparison,
-
-            'insights'
-            => $insights,
-
-            'competitionMatrixNational'
-            => $matrices['national'],
-
-            'competitionMatrixRegional'
-            => $matrices['regional'],
-
-            'clubColumns'
-            => $clubColumns,
-
+            'clubColumns' => array_column($urClubs, 'numero'),
             'clubLabels' => $clubLabels,
 
             'clubObservatory' => $clubObservatory,
-            'obsSummary'      => $obsSummary,
-            'dashboardLaureates' => $laureatePodiums,
+            'obsSummary' => $obsSummary,
 
+            'dashboardLaureates' => $laureatePodiums,
         ];
     }
 
-
     /*
     ============================================================
+    CORE BUSINESS (moteur principal)
     Agrégation clubs
+
+    Classement UR
     ============================================================
     */
-
-    private function buildClubObservatory(
-        array $urClubs
-    ): array {
-        $totalImages =
-            array_sum(
-                array_column(
-                    $urClubs,
-                    'total_images'
-                )
-            );
-
-        $totalPoints =
-            array_sum(
-                array_column(
-                    $urClubs,
-                    'points'
-                )
-            );
-
-        foreach ($urClubs as &$c) {
-
-            $partImages =
-                $totalImages
-                ? ($c['total_images'] / $totalImages) * 100
-                : 0;
-
-            $partPoints =
-                $totalPoints
-                ? ($c['points'] / $totalPoints) * 100
-                : 0;
-
-            $conversion =
-                $partImages > 0
-                ? ($partPoints / $partImages) * 100
-                : 100;
-
-            $c['part_images'] =
-                round($partImages, 2);
-
-            $c['part_points'] =
-                round($partPoints, 2);
-
-            $c['conversion'] =
-                round($conversion, 1);
-
-            $c['motor'] =
-                round(
-                    ($partImages + $partPoints) / 2,
-                    2
-                );
-
-            /*
-        🔥 manquait ici
-        */
-            $c['observatory_score'] =
-                round(
-                    $c['conversion']
-                        +
-                        ($c['elite_bonus'] ?? 0),
-                    1
-                );
-        }
-
-        unset($c);
-
-        usort(
-            $urClubs,
-            fn($a, $b) =>
-            $b['observatory_score']
-                <=>
-                $a['observatory_score']
-        );
-
-        foreach ($urClubs as $i => &$c) {
-            $c['rang_obs'] = $i + 1;
-        }
-
-        unset($c);
-
-        return $urClubs;
-    }
-
-    private function buildObservatorySummary(
-        array $clubs
-    ): array {
-
-        return [
-
-            'weight' => $clubs[0]['part_images'] ?? 0,
-
-            'conversion' => round(
-                array_sum(
-                    array_column($clubs, 'conversion')
-                ) / max(1, count($clubs)),
-                1
-            ),
-
-            'motor' => $clubs[0]['motor'] ?? 0
-
-        ];
-    }
-
-    /*
-============================================================
-Agrégation clubs
-============================================================
-*/
 
     private function aggregateByClub(
         array $rows
@@ -581,6 +176,8 @@ Agrégation clubs
         });
 
         foreach ($rows as $r) {
+
+            $r = ClubRow::normalize($r);
 
             $id = (int)$r['club_id'];
 
@@ -652,12 +249,11 @@ Agrégation clubs
             }
         }
 
-
         /*
-    ==========================
-    métriques observatoire
-    ==========================
-    */
+        ==========================
+        métriques observatoire
+        ==========================
+        */
 
         $totalImages =
             array_sum(
@@ -776,14 +372,14 @@ Agrégation clubs
 
 
             /*
-        profils enrichis
-        */
+            profils enrichis
+            */
 
             /*
-============================================================
-Typologie finale V1 (stable)
-============================================================
-*/
+            ============================================================
+            Typologie finale V1 (stable)
+            ============================================================
+            */
 
             /* faibles conversions -> toujours avant tout */
             if (
@@ -853,7 +449,6 @@ Typologie finale V1 (stable)
 
         unset($c);
 
-
         usort(
             $clubs,
             fn($a, $b) =>
@@ -870,11 +465,54 @@ Typologie finale V1 (stable)
 
         return array_values($clubs);
     }
-    /*
-    ============================================================
-    Matrices compétitions
-    ============================================================
-    */
+
+    private function buildURRanking(array $classement, bool $nationalOnly = false): array
+    {
+        $urs = [];
+
+        foreach ($classement as $c) {
+
+            $ur = (int)($c['ur'] ?? 0);
+            if (!$ur) continue;
+
+            if (!isset($urs[$ur])) {
+                $urs[$ur] = [
+                    'ur'     => $ur,
+                    'points' => 0,
+                    'clubs'  => 0,
+                    'images' => 0
+                ];
+            }
+
+            // 🎯 choix du scope
+            $points = $nationalOnly
+                ? ($c['N2'] + $c['N1'] + $c['CDF'])
+                : $c['points'];
+
+            $urs[$ur]['points'] += $points;
+
+            $urs[$ur]['clubs']++;
+
+            // tu peux aussi filtrer les images si besoin plus tard
+            $urs[$ur]['images'] += (int)($c['total_images'] ?? 0);
+        }
+
+        $urs = array_values($urs);
+
+        usort(
+            $urs,
+            fn($a, $b) =>
+            $b['points'] <=> $a['points']
+        );
+
+        foreach ($urs as $i => &$row) {
+            $row['rank'] = $i + 1;
+        }
+
+        unset($row);
+
+        return $urs;
+    }
 
     private function buildCompetitionMatrices(array $rows): array
     {
@@ -884,7 +522,7 @@ Typologie finale V1 (stable)
         foreach ($rows as $r) {
 
             $comp   = trim((string)$r['competition_nom']);
-            $club   = (string)$r['numero'];
+            $club = (string)($r['numero'] ?? $r['club_id'] ?? '0');
             $points = (float)$r['points'];
 
             $level = strtoupper(
@@ -974,63 +612,11 @@ Typologie finale V1 (stable)
 
     /*
     ============================================================
-    Classement UR
+    KPI & METRICS
+        INSIGHTS & ANALYTICS
     ============================================================
     */
-    private function buildURRanking(array $classement, bool $nationalOnly = false): array
-    {
-        $urs = [];
 
-        foreach ($classement as $c) {
-
-            $ur = (int)($c['ur'] ?? 0);
-            if (!$ur) continue;
-
-            if (!isset($urs[$ur])) {
-                $urs[$ur] = [
-                    'ur'     => $ur,
-                    'points' => 0,
-                    'clubs'  => 0,
-                    'images' => 0
-                ];
-            }
-
-            // 🎯 choix du scope
-            $points = $nationalOnly
-                ? ($c['N2'] + $c['N1'] + $c['CDF'])
-                : $c['points'];
-
-            $urs[$ur]['points'] += $points;
-
-            $urs[$ur]['clubs']++;
-
-            // tu peux aussi filtrer les images si besoin plus tard
-            $urs[$ur]['images'] += (int)($c['total_images'] ?? 0);
-        }
-
-        $urs = array_values($urs);
-
-        usort(
-            $urs,
-            fn($a, $b) =>
-            $b['points'] <=> $a['points']
-        );
-
-        foreach ($urs as $i => &$row) {
-            $row['rank'] = $i + 1;
-        }
-
-        unset($row);
-
-        return $urs;
-    }
-
-
-    /*
-    ============================================================
-    Insights
-    ============================================================
-    */
     private function buildInsights(
         array $classement,
         array $urClubs,
@@ -1116,162 +702,117 @@ Typologie finale V1 (stable)
     }
 
     /*
-============================================================
-FIL2B — Auteurs lauréats contextualisés
-============================================================
-*/
-
-    private function buildLaureatePodiumsOLD(): array
-    {
-        $db = \Config\Database::connect();
-
-        $rows = $db->query("
-        SELECT
-            c.nom AS competition,
-            ca.place,
-            pa.nom,
-            pa.prenom,
-            cl.numero AS club,
-            ca.total,
-            ca.nb_photos,
-            x.field_size
-
-        FROM classementauteurs ca
-
-        JOIN competitions c
-            ON c.id = ca.competitions_id
-
-        JOIN participants pa
-            ON pa.id = ca.participants_id
-
-        JOIN clubs cl
-            ON cl.id = pa.clubs_id
-
-        JOIN (
-            SELECT
-                competitions_id,
-                COUNT(*) AS field_size
-            FROM photos
-            GROUP BY competitions_id
-        ) x
-            ON x.competitions_id = ca.competitions_id
-
-        WHERE ca.place <= 5
-          AND ca.total > 0
-
-        ORDER BY c.nom, ca.place ASC
-    ")->getResultArray();
-
-        $out = [];
-
-        foreach ($rows as $r) {
-
-            $comp = $r['competition'];
-
-            /*
-        =====================================================
-        INIT COMPETITION
-        =====================================================
-        */
-            if (!isset($out[$comp])) {
-
-                $field = (int)$r['field_size'];
-
-                if ($field >= 900) {
-                    $label = '🔥 Elite';
-                    $class = 'perf-good';
-                } elseif ($field >= 700) {
-                    $label = '▲ Haute';
-                    $class = 'perf-good';
-                } elseif ($field >= 300) {
-                    $label = '● Dense';
-                    $class = 'perf-mid';
-                } else {
-                    $label = '○ Spécial';
-                    $class = 'perf-low';
-                }
-
-                $out[$comp] = [
-                    'competition'    => $comp,
-                    'field_size'     => $field,
-                    'density_label'  => $label,
-                    'density_class'  => $class,
-
-                    'gold'   => null,
-                    'silver' => null,
-                    'bronze' => null,
-
-                    // 🔥 nouveau
-                    'top5'   => [],
-                    'strikes' => [],
-                ];
-            }
-
-            $author = trim($r['prenom'] . ' ' . $r['nom']);
-
-            /*
-        =====================================================
-        STOCK TOP 5 (pour analyse)
-        =====================================================
-        */
-            $out[$comp]['top5'][] = [
-                'author' => $author,
-                'place'  => (int)$r['place']
-            ];
-
-            /*
-        =====================================================
-        TOP 3 (affichage)
-        =====================================================
-        */
-            $place = (int)$r['place'];
-
-            if ($place === 1) {
-                $slot = 'gold';
-            } elseif ($place === 2) {
-                $slot = 'silver';
-            } elseif ($place === 3) {
-                $slot = 'bronze';
-            } else {
-                $slot = null;
-            }
-
-            if ($slot) {
-                $out[$comp][$slot] = [
-                    'author'    => $author,
-                    'club'      => $r['club'],
-                    'total'     => (int)$r['total'],
-                    'nb_photos' => (int)$r['nb_photos']
-                ];
-            }
-        }
-
-        /*
-    =====================================================
-    DETECTION STRIKES (≥2 dans top5)
-    =====================================================
+    ============================================================
+    OBSERVATOIRE
+    ============================================================
     */
-        foreach ($out as &$comp) {
+    private function buildClubObservatory(
+        array $urClubs
+    ): array {
+        $totalImages =
+            array_sum(
+                array_column(
+                    $urClubs,
+                    'total_images'
+                )
+            );
 
-            $counts = [];
+        $totalPoints =
+            array_sum(
+                array_column(
+                    $urClubs,
+                    'points'
+                )
+            );
 
-            foreach ($comp['top5'] as $a) {
-                $name = $a['author'];
-                $counts[$name] = ($counts[$name] ?? 0) + 1;
-            }
+        foreach ($urClubs as &$c) {
 
-            foreach ($counts as $name => $count) {
-                if ($count >= 2) {
-                    $comp['strikes'][] = $name;
-                }
-            }
+            $partImages =
+                $totalImages
+                ? ($c['total_images'] / $totalImages) * 100
+                : 0;
+
+            $partPoints =
+                $totalPoints
+                ? ($c['points'] / $totalPoints) * 100
+                : 0;
+
+            $conversion =
+                $partImages > 0
+                ? ($partPoints / $partImages) * 100
+                : 100;
+
+            $c['part_images'] =
+                round($partImages, 2);
+
+            $c['part_points'] =
+                round($partPoints, 2);
+
+            $c['conversion'] =
+                round($conversion, 1);
+
+            $c['motor'] =
+                round(
+                    ($partImages + $partPoints) / 2,
+                    2
+                );
+
+            /*
+        🔥 manquait ici
+        */
+            $c['observatory_score'] =
+                round(
+                    $c['conversion']
+                        +
+                        ($c['elite_bonus'] ?? 0),
+                    1
+                );
         }
-        unset($comp);
 
-        return array_values($out);
+        unset($c);
+
+        usort(
+            $urClubs,
+            fn($a, $b) =>
+            $b['observatory_score']
+                <=>
+                $a['observatory_score']
+        );
+
+        foreach ($urClubs as $i => &$c) {
+            $c['rang_obs'] = $i + 1;
+        }
+
+        unset($c);
+
+        return $urClubs;
     }
 
+    private function buildObservatorySummary(
+        array $clubs
+    ): array {
 
+        return [
+
+            'weight' => $clubs[0]['part_images'] ?? 0,
+
+            'conversion' => round(
+                array_sum(
+                    array_column($clubs, 'conversion')
+                ) / max(1, count($clubs)),
+                1
+            ),
+
+            'motor' => $clubs[0]['motor'] ?? 0
+
+        ];
+    }
+
+    /*
+    ============================================================
+    EXCELLENCE / PODIUMS
+    ============================================================
+    */
     private function buildLaureatePodiums(): array
     {
         $db = \Config\Database::connect();
@@ -1419,5 +960,245 @@ FIL2B — Auteurs lauréats contextualisés
         unset($comp);
 
         return array_values($out);
+    }
+
+    /*
+
+    =====================================================
+    HELPERS
+    =====================================================
+    */
+    private function extractURRank(array $ranking, int $ur): ?int
+    {
+        foreach ($ranking as $r) {
+            if ((int)$r['ur'] === $ur) {
+                return $r['rank'];
+            }
+        }
+        return null;
+    }
+
+    private function buildKpis(array $classement, array $urClubs, int $ur, ?int $rankUR, ?int $rankURNational): array
+    {
+
+        /*
+        ------------------------------------------------------------
+        NATIONAL
+        ------------------------------------------------------------
+        */
+
+        $annee = 2026;
+        $globalFPF = [
+
+            'nb_clubs' =>
+            count($classement),
+
+            'nb_points' =>
+            array_sum(
+                array_column(
+                    $classement,
+                    'points'
+                )
+            ),
+
+            'nb_images' =>
+            array_sum(
+                array_column(
+                    $classement,
+                    'total_images'
+                )
+            ),
+
+
+            // si disponible dans dataset clubs
+            'nb_authors' => (int)(
+                $this->db->query("
+        SELECT COUNT(DISTINCT LEFT(ean,10)) total
+        FROM photos
+        WHERE competitions_id IN (
+            SELECT competition_id
+            FROM competition_meta
+            WHERE saison = ?
+              AND level IN ('N2','N1','CDF')
+                AND is_official = 1
+        )
+    ", [$annee])->getRowArray()['total'] ?? 0
+            ),
+        ];
+
+
+        /*
+        ------------------------------------------------------------
+        UR22
+        ------------------------------------------------------------
+        */
+
+        $clubIds = array_column($urClubs, 'numero');
+
+        $clubList = !empty($clubIds)
+            ? implode(',', array_map('intval', $clubIds))
+            : '0';
+
+        $globalUR = [
+
+            'nb_clubs' =>
+            count($urClubs),
+
+            'nb_points' =>
+            array_sum(
+                array_column(
+                    $urClubs,
+                    'points'
+                )
+            ),
+
+            'nb_images' =>
+            array_sum(
+                array_column(
+                    $urClubs,
+                    'total_images'
+                )
+            ),
+            'nb_authors' => (int)(
+                $this->db->query("
+    SELECT COUNT(DISTINCT LEFT(ean,10)) AS total
+    FROM photos
+    WHERE SUBSTRING(ean,3,4) IN ($clubList)
+      AND competitions_id IN (
+          SELECT competition_id
+          FROM competition_meta
+          WHERE saison = ?
+            AND level IN ('N2','N1','CDF')
+            AND is_official = 1
+      )
+", [$annee])->getRowArray()['total'] ?? 0
+            ),
+        ];
+
+
+        /*
+        ------------------------------------------------------------
+        Clubs engagés en compétitions nationales
+        (au moins 1 point ou 1 image en national)
+        ------------------------------------------------------------
+        */
+
+        $clubsEngaged = count(
+            array_filter(
+                $urClubs,
+                fn($club) => (
+                    ($club['competN2'] ?? 0) +
+                    ($club['competN1'] ?? 0) +
+                    ($club['competCDF'] ?? 0)
+                ) > 0
+                    ||
+                    (
+                        ($club['N2'] ?? 0) +
+                        ($club['N1'] ?? 0) +
+                        ($club['CDF'] ?? 0)
+                    ) > 0
+            )
+        );
+
+        $engagementRate =
+            $globalUR['nb_clubs']
+            ? round(
+                $clubsEngaged
+                    /
+                    $globalUR['nb_clubs']
+                    * 100,
+                0
+            )
+            : 0;
+
+        /*
+        ------------------------------------------------------------
+        COMPARAISON / KPI CARDS
+        ------------------------------------------------------------
+        */
+
+        $comparison = [
+
+            // ancien poids UR conservé
+            'ratio_points' =>
+            $globalFPF['nb_points']
+                ? round(
+                    $globalUR['nb_points']
+                        /
+                        $globalFPF['nb_points']
+                        * 100,
+                    1
+                )
+                : 0,
+
+            'ratio_images' =>
+            $globalFPF['nb_images']
+                ? round(
+                    $globalUR['nb_images']
+                        /
+                        $globalFPF['nb_images']
+                        * 100,
+                    1
+                )
+                : 0,
+
+            /*
+    TOP UR
+    */
+            'rank_ur_national' => $rankURNational,
+
+            'rank_ur' =>
+            $rankUR ?? null,
+
+            'nb_authors_ranked' =>
+            $globalUR['nb_authors'],
+
+
+            /*
+    FOCUS UR22
+    */
+            'clubs_engaged' =>
+            $clubsEngaged,
+
+            'engagement_rate' =>
+            $engagementRate,
+        ];
+
+
+        $comparison['delta'] =
+            $comparison['ratio_points']
+            -
+            $comparison['ratio_images'];
+
+        return [$globalFPF, $globalUR, $comparison];
+    }
+
+    private function buildClubLabels(array $urClubs, array $matrices): array
+    {
+        $labels = [];
+
+        foreach ($urClubs as $club) {
+            $key = $club['numero'] ?? $club['club_id'];
+            $labels[$key] = $club['nom'];
+        }
+
+        foreach ([$matrices['national'], $matrices['regional']] as $matrix) {
+            foreach ($matrix as $data) {
+
+                $winner = $data['winner_club'] ?? null;
+
+                if ($winner && !isset($labels[$winner])) {
+                    $labels[$winner] = 'Club ' . $winner;
+                }
+
+                foreach ($data['scores'] ?? [] as $club => $pts) {
+                    if (!isset($labels[$club])) {
+                        $labels[$club] = 'Club ' . $club;
+                    }
+                }
+            }
+        }
+
+        return $labels;
     }
 }

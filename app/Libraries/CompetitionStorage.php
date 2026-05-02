@@ -23,7 +23,73 @@ class CompetitionStorage
     {
         return is_array($competition) ? $competition : (array) $competition;
     }
+
     public function findCompetitionFolder(array $competition): ?string
+    {
+        $competition = $this->normalize($competition);
+
+        if (empty($competition['id'])) {
+            log_message('error', 'CompetitionStorage: id manquant');
+            return null;
+        }
+
+        $key = $competition['id'];
+
+        if (isset($this->cache[$key])) {
+            return $this->cache[$key];
+        }
+
+        $saison = $competition['saison'] ?? null;
+        $id     = $competition['id'];
+
+        $ursId = $competition['urs_id'] ?? null;
+        $isNational = ($ursId === null || $ursId == 0);
+
+        $type = $isNational ? 'N' : 'R';
+        $ur   = $isNational ? '00' : str_pad($ursId, 2, '0', STR_PAD_LEFT);
+
+        $numero = $competition['numero'] ?? null;
+
+        // ============================================================
+        // 1. FORMAT COMPLET (si numero dispo)
+        // ============================================================
+        if ($numero !== null) {
+            $numero = str_pad($numero, 4, '0', STR_PAD_LEFT);
+
+            $path = "{$this->basePath}{$saison}_{$type}_{$id}_{$ur}_{$numero}/";
+
+            if (is_dir($path)) {
+                return $this->cache[$key] = $path;
+            }
+
+            // fallback ancien format
+            $fallback = "{$this->basePath}{$saison}_{$type}_{$numero}_{$ur}_{$id}/";
+
+            if (is_dir($fallback)) {
+                log_message('debug', 'Fallback folder used: ' . $fallback);
+                return $this->cache[$key] = $fallback;
+            }
+        }
+
+        // ============================================================
+        // 2. FORMAT SANS NUMERO (CRITIQUE)
+        // ============================================================
+        $pattern = "{$this->basePath}{$saison}_{$type}_{$id}_{$ur}*";
+
+        $matches = glob($pattern);
+
+        if (!empty($matches)) {
+            // prend le premier match trouvé
+            return $this->cache[$key] = rtrim($matches[0], '/') . '/';
+        }
+
+        log_message('debug', 'Folder not found: ' . $id);
+
+        return $this->cache[$key] = null;
+    }
+
+
+    public function findCompetitionFolderOLD(array $competition): ?string
     {
 
         $competition = $this->normalize($competition);
@@ -86,7 +152,13 @@ class CompetitionStorage
 
             $saison = $competition['saison'];
             $id     = $competition['id'];
-            $numero = str_pad($competition['numero'], 4, '0', STR_PAD_LEFT);
+            $numero = $competition['numero'] ?? null;
+
+            if ($numero === null) {
+                throw new \RuntimeException("Numero manquant pour création compétition {$competition['id']}");
+            }
+
+            $numero = str_pad($numero, 4, '0', STR_PAD_LEFT);
 
             $ursId = $competition['urs_id'] ?? null;
             $type = empty($ursId) ? 'N' : 'R';
@@ -227,14 +299,19 @@ class CompetitionStorage
     ============================================================
     */
 
-    public function hasPhotos($competition): bool
+    public function hasPhotosSafe($competition): bool
     {
-        $path = $this->getPhotosPath($competition);
+        $path = $this->getPhotosPathIfExists($competition);
 
-        if (!is_dir($path)) return false;
+        if (!$path) return false;
 
-        $files = array_diff(scandir($path), ['.', '..']);
-        return !empty($files);
+        foreach (scandir($path) as $f) {
+            if (preg_match('/\.(jpg|jpeg)$/i', $f)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function hasThumbs($competition): bool
@@ -289,5 +366,27 @@ class CompetitionStorage
         $model->insert($data);
 
         return $compet['id'];
+    }
+
+    public function getPhotosPathIfExists($competition): ?string
+    {
+        $competition = $this->normalize($competition);
+
+        $folder = $this->findCompetitionFolder($competition);
+
+        if (!$folder) {
+            return null;
+        }
+
+        // 🔥 support COPAINS
+        if (is_dir($folder . 'photos/')) {
+            return $folder . 'photos/';
+        }
+
+        if (is_dir($folder . 'Images/')) {
+            return $folder . 'Images/';
+        }
+
+        return null;
     }
 }

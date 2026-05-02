@@ -10,10 +10,12 @@ use App\Libraries\CompetitionStatsBulkService;
 class Competitions extends BaseController
 {
     protected $photoModel;
+    protected $storage;
 
     public function __construct()
     {
         $this->photoModel = new PhotoModel();
+        $this->storage = new \App\Libraries\CompetitionStorage();
     }
 
     /*
@@ -125,11 +127,11 @@ class Competitions extends BaseController
             }
         }
         /*
- =========================================================
- 🎯 FILTRE PAR UR UTILISATEUR
- Nationales + UR utilisateur uniquement
- =========================================================
- */
+        =========================================================
+        🎯 FILTRE PAR UR UTILISATEUR
+        Nationales + UR utilisateur uniquement
+        =========================================================
+        */
         $competitions_list = array_values(
             array_filter(
                 $competitions_list,
@@ -145,11 +147,84 @@ class Competitions extends BaseController
                 }
             )
         );
+
         /*
-    =========================================================
-    🎨 DATA VIEW
-    =========================================================
-    */
+=========================================================
+🎯 FILTRE UR
+=========================================================
+*/
+        $competitions_list = array_values(
+            array_filter($competitions_list, function ($c) use ($userUr) {
+
+                if (empty($c['urs_id'])) return true;
+
+                return (int)$c['urs_id'] === $userUr;
+            })
+        );
+
+        /*
+=========================================================
+📁 CHECK FILESYSTEM + STATUS (ICI 🔥)
+=========================================================
+*/
+
+        $storage = new \App\Libraries\CompetitionStorage();
+
+        foreach ($competitions_list as &$competition) {
+
+            $photoCountFs = 0;
+
+            $photosPath = $storage->getPhotosPathIfExists($competition);
+
+            if ($photosPath && is_dir($photosPath)) {
+
+                foreach (scandir($photosPath) as $f) {
+                    if ($f === '.' || $f === '..') continue;
+
+                    if (preg_match('/\.(jpg|jpeg)$/i', $f)) {
+                        $photoCountFs++;
+                    }
+                }
+            }
+
+            // 🔥 TOUJOURS définir
+            if ($photoCountFs > 0) {
+                $competition['status'] = 'ready';
+            } elseif (!empty($competition['photo_count'])) {
+                $competition['status'] = 'missing_files';
+            } else {
+                $competition['status'] = 'empty';
+            }
+
+            $competition['photo_count_fs'] = $photoCountFs;
+        }
+
+        /*
+=========================================================
+🔽 TRI : REGIONAL → NATIONAL
+=========================================================
+*/
+
+        usort($competitions_list, function ($a, $b) {
+
+            $aRegional = !empty($a['urs_id']);
+            $bRegional = !empty($b['urs_id']);
+
+            if ($aRegional !== $bRegional) {
+                return $aRegional ? -1 : 1;
+            }
+
+            return strcmp(
+                $b['date_competition'] ?? '',
+                $a['date_competition'] ?? ''
+            );
+        });
+
+        /*
+=========================================================
+🎨 DATA VIEW
+=========================================================
+*/
 
         $this->data['competitions_list']   = $competitions_list;
         $this->data['userUr']              = $userUr;

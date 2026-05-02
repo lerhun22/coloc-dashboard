@@ -39,6 +39,12 @@ sort($clubs);
 
     <h1>
         📊 Dashboard COLOC — Saison <?= $annee ?>
+
+
+        <a href="<?= site_url('dashboard/export') ?>"
+            class="export-btn">
+            📥 Export Excel
+        </a>
     </h1>
     <!-- Performance -->
     <?= view('dashboard/partials/_kpis', [

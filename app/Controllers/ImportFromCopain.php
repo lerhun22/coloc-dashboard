@@ -6,10 +6,14 @@ use App\Controllers\BaseController;
 use App\Libraries\ImportWorkflow;
 use App\Libraries\CompetitionRanking;
 use App\Services\CopainImportService;
+use App\Libraries\CompetitionStorage;
+
 use App\Models\CompetitionModel;
 
 class ImportFromCopain extends BaseController
 {
+    protected CompetitionStorage $storage;
+
     /*
     |--------------------------------------------------------------------------
     | START
@@ -18,6 +22,7 @@ class ImportFromCopain extends BaseController
 
     public function index()
     {
+        log_message('debug', '[IMPORT FROM COPAIN] START');
 
         $config = config('Copain');
 
@@ -109,7 +114,6 @@ class ImportFromCopain extends BaseController
     ⚙️ NORMALISATION + ÉTATS
     ============================================================
     */
-
         $sessionStates = [];
 
         $normalize = function ($list) use ($map, &$sessionStates) {
@@ -194,8 +198,11 @@ class ImportFromCopain extends BaseController
                     'isPending' => $isPending,
                     'DBok'      => $DBok,
                     'ZIPok'     => $ZIPok,
+                    'hasPhotos' => $hasPhotos,
                 ];
             }
+
+            log_message('debug', '[IMPORT FROM COPAIN] NORMALIZE : ' . print_r($list[0], true));
 
             return $list;
         };
@@ -265,7 +272,6 @@ class ImportFromCopain extends BaseController
 
         return $home->importregional($id);
     }
-
     public function importFull($id)
     {
         $id = (int)$id;
@@ -291,8 +297,6 @@ class ImportFromCopain extends BaseController
 
             ignore_user_abort(true);
             set_time_limit(0);
-
-
 
             $home = new \App\Controllers\Home();
 
@@ -320,17 +324,19 @@ class ImportFromCopain extends BaseController
 
             log_message('debug', "[FULL IMPORT] COMPUTE DONE");
 
-
             /*
         ============================================================
         ✅ DONE
         ============================================================
         */
 
+            log_message('debug', "[FULL IMPORT] VIEW/DONE");
+
             return $this->response->setJSON([
                 'status' => 'ok',
                 'type'   => $type,
-                'id'     => $id
+                'id'     => $id,
+                'redirect' => site_url("competitions/$id/photos")
             ]);
         } catch (\Throwable $e) {
 
@@ -339,12 +345,11 @@ class ImportFromCopain extends BaseController
             return $this->response->setJSON([
                 'status'  => 'error',
                 'step'    => 'full',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
+                'id'      => $id ?? null
             ]);
         }
     }
-
-
     public function importOne($id)
     {
         $id = (int)$id;
@@ -439,129 +444,12 @@ class ImportFromCopain extends BaseController
 
             log_message('error', '[IMPORT DB EXCEPTION] ' . $e->getMessage());
 
-
-
             return $this->response->setJSON([
                 'status' => 'error',
                 'message' => $e->getMessage(),
                 'id' => $id
             ]);
         }
-    }
-
-
-
-    public function start($id)
-    {
-        $id = (int)$id;
-
-        log_message('debug', 'START ' . $id);
-
-        $wf = new ImportWorkflow($id);
-
-        // 🔥 étape unique simplifiée
-        $wf->setStep('process_zip', 0);
-
-        return redirect()->to(
-            base_url("import/progress/" . $id)
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | PROGRESS VIEW
-    |--------------------------------------------------------------------------
-    */
-
-    public function progress($id)
-    {
-        return view('import/progress', [
-            'id' => (int)$id
-        ]);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | STEP (ORCHESTRATION)
-    |--------------------------------------------------------------------------
-    */
-
-    public function step($id)
-    {
-        $id = (int)$id;
-
-        $wf = new ImportWorkflow($id);
-
-        $state = $wf->getState();
-
-        $step     = $state['step'];
-        $progress = $state['progress'];
-
-        log_message('debug', "[IMPORT] ID={$id} STEP={$step} PROGRESS={$progress}");
-
-        switch ($step) {
-
-            /*
-            ---------------------------
-            PROCESS GLOBAL (DB + ZIP)
-            ---------------------------
-            */
-
-            case 'process_zip':
-
-                $service = new CopainImportService();
-
-                try {
-
-                    // 🔥 pipeline complet
-                    $result = $service->importZipFromCopain($id);
-
-                    if (!empty($result['error'])) {
-
-                        log_message('error', '[IMPORT ERROR] ' . $result['error']);
-
-                        $wf->error($result['error']);
-                        break;
-                    }
-
-                    /*
-                    ---------------------------
-                    DONE
-                    ---------------------------
-                    */
-
-                    $wf->setStep('done', 100);
-                } catch (\Throwable $e) {
-
-                    log_message('error', '[IMPORT EXCEPTION] ' . $e->getMessage());
-
-                    $wf->error('exception');
-                }
-
-                break;
-
-            /*
-            ---------------------------
-            DONE
-            ---------------------------
-            */
-
-            case 'done':
-                break;
-
-            /*
-            ---------------------------
-            ERROR
-            ---------------------------
-            */
-
-            case 'error':
-                break;
-        }
-
-        return $this->response->setJSON(
-            $wf->getState()
-        );
     }
 
     /**
@@ -597,7 +485,6 @@ class ImportFromCopain extends BaseController
         $db->table('competition_metrics')->truncate();
         $db->table('competitions_enriched')->truncate();
         $db->table('competition_meta')->truncate();
-
 
         $all = array_merge(
             $competitions,
@@ -656,8 +543,6 @@ class ImportFromCopain extends BaseController
                 $level = 'DIRECT';
             }
 
-
-
             /*
         =========================================================
         DISCIPLINE
@@ -708,8 +593,6 @@ class ImportFromCopain extends BaseController
                 $discipline = 'AUTEUR';
             }
 
-
-
             /*
         =========================================================
         SUPPORT
@@ -729,8 +612,6 @@ class ImportFromCopain extends BaseController
                 $support = 'IP';
             }
 
-
-
             /*
         =========================================================
         PARTICIPANTS TYPE
@@ -746,8 +627,6 @@ class ImportFromCopain extends BaseController
                 $participantsType = 'author';
             }
 
-
-
             /*
         =========================================================
         progression model
@@ -758,8 +637,6 @@ class ImportFromCopain extends BaseController
                 $level,
                 ['REGIONAL', 'N2', 'N1']
             ) ? 1 : 0;
-
-
 
             /*
         =========================================================
@@ -780,8 +657,6 @@ class ImportFromCopain extends BaseController
                 'normalized_at'      => date('Y-m-d H:i:s')
 
             ]);
-
-
 
             /*
         =========================================================
@@ -814,8 +689,6 @@ class ImportFromCopain extends BaseController
 
                 'source_label' => $label
             ]);
-
-
 
             /*
         =========================================================
@@ -1050,5 +923,119 @@ class ImportFromCopain extends BaseController
             'inserted' => $inserted,
             'unknown_to_review' => $unknown
         ]);
+    }
+
+    /* ANCIENNES MÉTHODES (À REVOIR / REBRANCHER) */
+    public function startOLD($id)
+    {
+        $id = (int)$id;
+
+        log_message('debug', 'START ' . $id);
+
+        $wf = new ImportWorkflow($id);
+
+        // 🔥 étape unique simplifiée
+        $wf->setStep('process_zip', 0);
+
+        return redirect()->to(
+            base_url("import/progress/" . $id)
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PROGRESS VIEW
+    |--------------------------------------------------------------------------
+    */
+
+    public function progressOLD($id)
+    {
+        return view('import/progress', [
+            'id' => (int)$id
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | STEP (ORCHESTRATION)
+    |--------------------------------------------------------------------------
+    */
+
+    public function stepOLD($id)
+    {
+        $id = (int)$id;
+
+        $wf = new ImportWorkflow($id);
+
+        $state = $wf->getState();
+
+        $step     = $state['step'];
+        $progress = $state['progress'];
+
+        log_message('debug', "[IMPORT] ID={$id} STEP={$step} PROGRESS={$progress}");
+
+        switch ($step) {
+
+            /*
+            ---------------------------
+            PROCESS GLOBAL (DB + ZIP)
+            ---------------------------
+            */
+
+            case 'process_zip':
+
+                $service = new CopainImportService();
+
+                try {
+
+                    // 🔥 pipeline complet
+                    $result = $service->importZipFromCopain($id);
+
+                    if (!empty($result['error'])) {
+
+                        log_message('error', '[IMPORT ERROR] ' . $result['error']);
+
+                        $wf->error($result['error']);
+                        break;
+                    }
+
+                    /*
+                    ---------------------------
+                    DONE
+                    ---------------------------
+                    */
+
+                    $wf->setStep('done', 100);
+                } catch (\Throwable $e) {
+
+                    log_message('error', '[IMPORT EXCEPTION] ' . $e->getMessage());
+
+                    $wf->error('exception');
+                }
+
+                break;
+
+            /*
+            ---------------------------
+            DONE
+            ---------------------------
+            */
+
+            case 'done':
+                break;
+
+            /*
+            ---------------------------
+            ERROR
+            ---------------------------
+            */
+
+            case 'error':
+                break;
+        }
+
+        return $this->response->setJSON(
+            $wf->getState()
+        );
     }
 }
